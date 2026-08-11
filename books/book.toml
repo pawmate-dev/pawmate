@@ -1,0 +1,11 @@
+[book]
+title = "Pawmate Implementation Guide"
+description = "A human-in-the-loop guide for building the private two-person pawmate app."
+language = "en"
+src = "src"
+
+[build]
+build-dir = "book"
+
+[output.html]
+site-url = "/book/"
