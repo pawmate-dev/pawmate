@@ -7,5 +7,6 @@
   - [Requirements and decisions](first-vertical-slice/requirements.md)
   - [User journey and API contract](first-vertical-slice/contract.md)
   - [Draft implementation code](first-vertical-slice/draft-code.md)
+  - [Next step: server pairing foundation](first-vertical-slice/server-pairing-foundation.md)
   - [Implementation plan](first-vertical-slice/implementation.md)
   - [Verification and review](first-vertical-slice/verification.md)
