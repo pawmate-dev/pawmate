@@ -1,0 +1,23 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="256"
+  height="256"
+  viewBox="0 0 256 256"
+>
+  <rect width="256" height="256" fill="#ffffff"/>
+
+  <circle
+    cx="105"
+    cy="105"
+    r="72"
+    fill="#8c7acb"
+  />
+
+  <circle
+    cx="145"
+    cy="145"
+    r="72"
+    fill="#f4b8e4"
+    fill-opacity="0.72"
+  />
+</svg>
