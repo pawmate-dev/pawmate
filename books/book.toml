@@ -8,4 +8,4 @@ src = "src"
 build-dir = "book"
 
 [output.html]
-site-url = "/book/"
+site-url = "/pawmate/"

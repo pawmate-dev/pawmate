@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: deploy-implementation-book
@@ -20,9 +20,6 @@ jobs:
   deploy:
     name: Build and deploy mdBook
     runs-on: ubuntu-latest
-    env:
-      PAGES_DEPLOY_TOKEN: ${{ secrets.PAGES_DEPLOY_TOKEN }}
-      TARGET_REPOSITORY: pawmate-dev/pawmate-dev.github.io
     steps:
       - name: Check out Pawmate
         uses: actions/checkout@v6
@@ -33,33 +30,10 @@ jobs:
       - name: Build book
         run: mdbook build books
 
-      - name: Check deployment credential
-        run: |
-          if [ -z "$PAGES_DEPLOY_TOKEN" ]; then
-            echo "PAGES_DEPLOY_TOKEN must have contents: write access to $TARGET_REPOSITORY."
-            exit 1
-          fi
-
-      - name: Check out Pages repository
-        uses: actions/checkout@v6
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          repository: ${{ env.TARGET_REPOSITORY }}
-          token: ${{ secrets.PAGES_DEPLOY_TOKEN }}
-          path: pages
-
-      - name: Update published book
-        run: |
-          rsync --archive --delete books/book/ pages/book/
-
-      - name: Commit and push published book
-        working-directory: pages
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add book
-          if git diff --cached --quiet; then
-            echo "The published book is already up to date."
-            exit 0
-          fi
-          git commit -m "docs: deploy Pawmate implementation book"
-          git push
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./books/book
+          force_orphan: true
