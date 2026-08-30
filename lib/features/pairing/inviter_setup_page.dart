@@ -64,8 +64,9 @@ class _InviterSetupPageState extends State<InviterSetupPage> {
     } on PairingApiException catch (error) {
       if (mounted) setState(() => _errorMessage = error.message);
     } on Object {
-      if (mounted)
+      if (mounted) {
         setState(() => _errorMessage = 'Could not reach the server.');
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
