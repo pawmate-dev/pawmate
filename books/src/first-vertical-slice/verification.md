@@ -35,6 +35,17 @@ Manually verify on an Android emulator:
    correct.
 5. Confirm a third account cannot join the private instance.
 
+For the current inviter MVP, manually verify invitation creation with:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/pairing/invites \
+  -H 'content-type: application/json' \
+  -d '{"server_url":"http://localhost:8080"}'
+```
+
+Save the returned `invite_url` and `inviter_token` only in a local shell. The
+invite URL is a bearer secret; do not paste it into commits, logs, or issues.
+
 ## Pull request review
 
 Before merging, verify that:

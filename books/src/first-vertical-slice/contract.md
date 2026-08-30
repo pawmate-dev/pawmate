@@ -39,8 +39,9 @@ POST /api/v1/auth/logout
 
 GET  /api/v1/me
 GET  /api/v1/couple
-POST /api/v1/pairing-invites
-POST /api/v1/pairing-invites/redeem
+POST /api/v1/pairing/invites
+POST /api/v1/pairing/invites/redeem
+GET  /api/v1/pairing/invites/status
 ```
 
 Suggested behavior:
@@ -51,8 +52,9 @@ Suggested behavior:
 | `POST /auth/login`             | No             | Returns an access token and refresh token.                    |
 | `GET /me`                      | Yes            | Returns the current user and pairing state.                   |
 | `GET /couple`                  | Yes            | Returns the couple or a not-paired state.                     |
-| `POST /pairing-invites`        | Yes            | Creates one expiring, single-use invite for an unpaired user. |
-| `POST /pairing-invites/redeem` | Yes            | Atomically creates the couple and consumes the invite.        |
+| `POST /pairing/invites`        | Instance context in the MVP | Creates one expiring, single-use invite and returns an inviter token. |
+| `POST /pairing/invites/redeem` | No in the MVP | Atomically consumes the invite and marks the instance paired. |
+| `GET /pairing/invites/status`  | Bearer inviter token | Lets the inviting device check whether redemption completed. |
 
 Return generic authentication errors. Do not reveal whether a display name,
 email address, invite code, or server contains a particular user.

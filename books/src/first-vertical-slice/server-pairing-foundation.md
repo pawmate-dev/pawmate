@@ -140,9 +140,9 @@ go test ./...
 After the service tests pass, add authenticated handlers:
 
 ```text
-POST /api/v1/pairing-invites
-POST /api/v1/pairing-invites/redeem
-GET  /api/v1/couple
+POST /api/v1/pairing/invites
+POST /api/v1/pairing/invites/redeem
+GET  /api/v1/pairing/invites/status
 ```
 
 The authentication middleware supplies the user ID. Do not accept `user_id` or

@@ -106,7 +106,7 @@ class InstanceSetupPage extends StatefulWidget {
 
 class _InstanceSetupPageState extends State<InstanceSetupPage> {
   final _formKey = GlobalKey<FormState>();
-  final _urlController = TextEditingController(text: 'http://10.0.2.2:8080');
+  final _urlController = TextEditingController();
   final _api = InstanceApi(http.Client());
   bool _isConnecting = false;
   String? _errorMessage;
@@ -163,7 +163,10 @@ class _InstanceSetupPageState extends State<InstanceSetupPage> {
                     validator: (value) => value == null || value.trim().isEmpty
                         ? 'Server URL is required.'
                         : null,
-                    decoration: const InputDecoration(labelText: 'Server URL'),
+                    decoration: const InputDecoration(
+                      labelText: 'Server URL',
+                      hintText: 'https://pawmate.example.com',
+                    ),
                   ),
                   if (_errorMessage != null) ...[
                     const SizedBox(height: 12),
@@ -305,3 +308,32 @@ func (store *Store) RedeemInvite(ctx context.Context, userID, code string) error
 `findActiveInviteForUpdate` must reject expired and previously redeemed codes.
 For SQLite, write transactions serialize writers; still test two concurrent
 redemption attempts and ensure only one succeeds.
+
+## Current inviter implementation
+
+The repository now has a process-local implementation in
+`server/internal/pairing/service.go` and HTTP adapters in
+`server/internal/httpapi/pairing.go`:
+
+```text
+POST /api/v1/pairing/invites
+  {"server_url":"https://home.example.com"}
+  -> {"invite_url":"pawmate://pair?...", "inviter_token":"...", "expires_at":"..."}
+
+GET /api/v1/pairing/invites/status
+  Authorization: Bearer <inviter_token>
+
+POST /api/v1/pairing/invites/redeem
+  {"code":"..."}
+```
+
+The Flutter inviter screen is
+`lib/features/pairing/inviter_setup_page.dart`, backed by
+`lib/features/pairing/pairing_api.dart`. It validates the configured URL,
+creates the invite, displays the link, copies it to the clipboard, and checks
+pairing status.
+
+This is intentionally a development baseline: pairing state is protected by a
+mutex but lives only in the Gin process. A restart invalidates the invitation
+and pairing state. Before production, replace the service storage with the
+SQLite schema and authenticated accounts described earlier in this chapter.
