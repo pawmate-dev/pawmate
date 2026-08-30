@@ -64,7 +64,8 @@ class _InviterSetupPageState extends State<InviterSetupPage> {
     } on PairingApiException catch (error) {
       if (mounted) setState(() => _errorMessage = error.message);
     } on Object {
-      if (mounted) setState(() => _errorMessage = 'Could not reach the server.');
+      if (mounted)
+        setState(() => _errorMessage = 'Could not reach the server.');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -76,9 +77,9 @@ class _InviterSetupPageState extends State<InviterSetupPage> {
     if (invite == null) return;
     await Clipboard.setData(ClipboardData(text: invite.inviteURL));
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invitation link copied')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Invitation link copied')));
     }
   }
 
