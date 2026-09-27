@@ -18,6 +18,7 @@ type createInviteResponse struct {
 	ExpiresAt    string `json:"expires_at"`
 	InviteURL    string `json:"invite_url"`
 	InviterToken string `json:"inviter_token"`
+	RecoveryCode string `json:"recovery_code"`
 }
 
 type redeemInviteRequest struct {
@@ -26,8 +27,20 @@ type redeemInviteRequest struct {
 
 type pairingStatusResponse struct {
 	InviteeToken string `json:"invitee_token,omitempty"`
+	RecoveryCode string `json:"recovery_code,omitempty"`
 	PairID       string `json:"pair_id,omitempty"`
 	Status       string `json:"status"`
+}
+
+type recoverPairingRequest struct {
+	RecoveryCode string `json:"recovery_code" binding:"required"`
+}
+
+type recoverPairingResponse struct {
+	AccessToken  string `json:"access_token"`
+	PairID       string `json:"pair_id"`
+	RecoveryCode string `json:"recovery_code"`
+	Role         string `json:"role"`
 }
 
 // createInviteHandler creates an invitation for the configured server URL.
@@ -59,6 +72,7 @@ func createInviteHandler(service *pairing.Service) gin.HandlerFunc {
 			ExpiresAt:    invite.ExpiresAt.UTC().Format("2006-01-02T15:04:05Z"),
 			InviteURL:    invite.URL,
 			InviterToken: invite.InviterToken,
+			RecoveryCode: invite.RecoveryCode,
 		})
 	}
 }
@@ -78,6 +92,8 @@ func redeemInviteHandler(service *pairing.Service) gin.HandlerFunc {
 			httpStatus := http.StatusConflict
 			if errors.Is(err, pairing.ErrExpiredInvite) {
 				code, httpStatus = "expired_invite", http.StatusGone
+			} else if !errors.Is(err, pairing.ErrInvalidInvite) {
+				code, httpStatus = "internal_error", http.StatusInternalServerError
 			}
 			c.JSON(httpStatus, gin.H{"error": code})
 			return
@@ -85,8 +101,40 @@ func redeemInviteHandler(service *pairing.Service) gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, pairingStatusResponse{
 			InviteeToken: status.InviteeToken,
+			RecoveryCode: status.RecoveryCode,
 			PairID:       status.PairID,
 			Status:       status.Status,
+		})
+	}
+}
+
+// recoverPairingHandler rotates a member's credentials using their recovery code.
+func recoverPairingHandler(service *pairing.Service) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var request recoverPairingRequest
+		if err := c.ShouldBindJSON(&request); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request"})
+			return
+		}
+
+		credentials, err := service.Recover(request.RecoveryCode)
+		if err != nil {
+			code := "invalid_recovery_code"
+			status := http.StatusUnauthorized
+			if errors.Is(err, pairing.ErrNotPaired) {
+				code, status = "not_paired", http.StatusConflict
+			} else if !errors.Is(err, pairing.ErrInvalidRecoveryCode) {
+				code, status = "internal_error", http.StatusInternalServerError
+			}
+			c.JSON(status, gin.H{"error": code})
+			return
+		}
+
+		c.JSON(http.StatusOK, recoverPairingResponse{
+			AccessToken:  credentials.AccessToken,
+			PairID:       credentials.PairID,
+			RecoveryCode: credentials.RecoveryCode,
+			Role:         credentials.Role,
 		})
 	}
 }
@@ -97,7 +145,11 @@ func pairingStatusHandler(service *pairing.Service) gin.HandlerFunc {
 		token := strings.TrimSpace(strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer "))
 		status, err := service.Status(token)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid_inviter_token"})
+			if errors.Is(err, pairing.ErrInvalidInviterToken) {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid_inviter_token"})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal_error"})
 			return
 		}
 		c.JSON(http.StatusOK, pairingStatusResponse{PairID: status.PairID, Status: status.Status})

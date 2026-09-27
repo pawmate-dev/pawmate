@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 /// A one-time invitation returned by the Pawmate instance.
@@ -8,6 +9,7 @@ class PairingInvite {
     required this.expiresAt,
     required this.inviteURL,
     required this.inviterToken,
+    required this.recoveryCode,
   });
 
   /// Decodes the server's invitation response.
@@ -16,28 +18,63 @@ class PairingInvite {
       expiresAt: DateTime.parse(json['expires_at'] as String),
       inviteURL: json['invite_url'] as String,
       inviterToken: json['inviter_token'] as String,
+      recoveryCode: json['recovery_code'] as String,
     );
   }
 
   final DateTime expiresAt;
   final String inviteURL;
   final String inviterToken;
+  final String recoveryCode;
 }
 
 /// Describes the pairing state observed by the inviting device.
 class PairingStatus {
-  const PairingStatus({required this.status, this.pairID});
+  const PairingStatus({
+    required this.status,
+    this.pairID,
+    this.inviteeToken,
+    this.recoveryCode,
+  });
 
   /// Decodes a pairing status response.
   factory PairingStatus.fromJson(Map<String, dynamic> json) {
     return PairingStatus(
       pairID: json['pair_id'] as String?,
       status: json['status'] as String,
+      inviteeToken: json['invitee_token'] as String?,
+      recoveryCode: json['recovery_code'] as String?,
     );
   }
 
   final String? pairID;
   final String status;
+  final String? inviteeToken;
+  final String? recoveryCode;
+}
+
+/// Credentials issued when a member restores access with a recovery code.
+class RecoveredCredentials {
+  const RecoveredCredentials({
+    required this.accessToken,
+    required this.pairID,
+    required this.recoveryCode,
+    required this.role,
+  });
+
+  factory RecoveredCredentials.fromJson(Map<String, dynamic> json) {
+    return RecoveredCredentials(
+      accessToken: json['access_token'] as String,
+      pairID: json['pair_id'] as String,
+      recoveryCode: json['recovery_code'] as String,
+      role: json['role'] as String,
+    );
+  }
+
+  final String accessToken;
+  final String pairID;
+  final String recoveryCode;
+  final String role;
 }
 
 /// Represents a user-facing error returned while calling the pairing API.
@@ -99,17 +136,59 @@ class PairingApi {
     );
   }
 
+  /// Redeems a one-time invite code on the server encoded in the invite link.
+  Future<PairingStatus> redeemInvite(String rawServerURL, String code) async {
+    final serverURL = _parseServerURL(rawServerURL);
+    final response = await _client
+        .post(
+          serverURL.resolve('/api/v1/pairing/invites/redeem'),
+          headers: const {'content-type': 'application/json'},
+          body: jsonEncode({'code': code}),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    if (response.statusCode != 200) {
+      throw PairingApiException(_messageFor(response));
+    }
+    return PairingStatus.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  /// Rotates credentials using a member's single-use recovery code.
+  Future<RecoveredCredentials> recover(
+    String rawServerURL,
+    String recoveryCode,
+  ) async {
+    final serverURL = _parseServerURL(rawServerURL);
+    final response = await _client
+        .post(
+          serverURL.resolve('/api/v1/pairing/recover'),
+          headers: const {'content-type': 'application/json'},
+          body: jsonEncode({'recovery_code': recoveryCode.trim()}),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    if (response.statusCode != 200) {
+      throw PairingApiException(_messageFor(response));
+    }
+    return RecoveredCredentials.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
   /// Validates and normalizes a server URL before making a request.
   Uri _parseServerURL(String rawServerURL) {
     final uri = Uri.tryParse(rawServerURL.trim());
     if (uri == null ||
         uri.host.isEmpty ||
         (uri.scheme != 'http' && uri.scheme != 'https') ||
+        (uri.scheme == 'http' && !kDebugMode) ||
         uri.userInfo.isNotEmpty ||
         uri.hasQuery ||
         uri.hasFragment) {
       throw const PairingApiException(
-        'Use an http:// or https:// server URL without credentials or query parameters.',
+        'Use an HTTPS server URL in release builds. HTTP is allowed only in debug builds.',
       );
     }
     return uri.replace(path: uri.path.replaceFirst(RegExp(r'/+$'), ''));

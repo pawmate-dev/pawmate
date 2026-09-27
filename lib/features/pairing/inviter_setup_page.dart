@@ -1,7 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../design/handdrawn_scaffold.dart';
+import '../../design/pawmate_theme.dart';
+import 'widgets/invite_result_card.dart';
+import 'widgets/pairing_error_note.dart';
+import 'widgets/pairing_header.dart';
+import 'widgets/pairing_recovery_card.dart';
+import 'widgets/recovery_code_note.dart';
+import 'widgets/server_setup_card.dart';
 import 'pairing_api.dart';
+import 'pairing_credentials.dart';
 
 class InviterSetupPage extends StatefulWidget {
   const InviterSetupPage({super.key});
@@ -13,16 +22,54 @@ class InviterSetupPage extends StatefulWidget {
 class _InviterSetupPageState extends State<InviterSetupPage> {
   final _formKey = GlobalKey<FormState>();
   final _serverURLController = TextEditingController();
+  final _recoveryServerController = TextEditingController();
+  final _recoveryCodeController = TextEditingController();
   final _api = PairingApi();
+  final _credentials = PairingCredentials();
   PairingInvite? _invite;
   PairingStatus? _status;
   String? _errorMessage;
   bool _isLoading = false;
+  String? _recoveredCode;
+  String? _recoveredRole;
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreSavedInvite();
+  }
+
+  Future<void> _restoreSavedInvite() async {
+    try {
+      final credentials = await _credentials.read();
+      if (!mounted || credentials == null || credentials.role != 'inviter') {
+        return;
+      }
+      _serverURLController.text = credentials.serverURL;
+      final inviteURL = credentials.inviteURL;
+      final expiresAt = credentials.expiresAt;
+      if (inviteURL != null && expiresAt != null) {
+        setState(() {
+          _invite = PairingInvite(
+            inviteURL: inviteURL,
+            inviterToken: credentials.accessToken,
+            recoveryCode: credentials.recoveryCode,
+            expiresAt: expiresAt,
+          );
+        });
+        await _refreshStatus();
+      }
+    } on Object {
+      // A damaged local credential record must not block server setup.
+    }
+  }
 
   /// Releases controllers and the HTTP client owned by this page.
   @override
   void dispose() {
     _serverURLController.dispose();
+    _recoveryServerController.dispose();
+    _recoveryCodeController.dispose();
     _api.close();
     super.dispose();
   }
@@ -33,17 +80,75 @@ class _InviterSetupPageState extends State<InviterSetupPage> {
     setState(() {
       _errorMessage = null;
       _isLoading = true;
+      _invite = null;
       _status = null;
     });
     try {
       final invite = await _api.createInvite(_serverURLController.text);
       if (!mounted) return;
       setState(() => _invite = invite);
+      try {
+        await _credentials.save(
+          serverURL: _serverURLController.text.trim(),
+          accessToken: invite.inviterToken,
+          recoveryCode: invite.recoveryCode,
+          pairID: '',
+          role: 'inviter',
+          inviteURL: invite.inviteURL,
+          expiresAt: invite.expiresAt,
+        );
+      } on Object {
+        if (mounted) {
+          setState(() {
+            _errorMessage =
+                'Invitation created. Save the recovery code below; this device could not store it securely.';
+          });
+        }
+      }
     } on PairingApiException catch (error) {
       if (mounted) setState(() => _errorMessage = error.message);
     } on Object {
       if (mounted) {
         setState(() => _errorMessage = 'Could not reach the Pawmate server.');
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// Restores this member's access after reinstall and rotates the recovery code.
+  Future<void> _recoverAccess() async {
+    setState(() {
+      _errorMessage = null;
+      _recoveredCode = null;
+      _recoveredRole = null;
+      _isLoading = true;
+    });
+    try {
+      final credentials = await _api.recover(
+        _recoveryServerController.text,
+        _recoveryCodeController.text,
+      );
+      await _credentials.save(
+        serverURL: _recoveryServerController.text.trim(),
+        accessToken: credentials.accessToken,
+        recoveryCode: credentials.recoveryCode,
+        pairID: credentials.pairID,
+        role: credentials.role,
+      );
+      if (mounted) {
+        setState(() {
+          _recoveredCode = credentials.recoveryCode;
+          _recoveredRole = credentials.role;
+        });
+      }
+    } on PairingApiException catch (error) {
+      if (mounted) setState(() => _errorMessage = error.message);
+    } on Object {
+      if (mounted) {
+        setState(
+          () => _errorMessage = 'Could not restore access to this home.',
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -60,6 +165,17 @@ class _InviterSetupPageState extends State<InviterSetupPage> {
         _serverURLController.text,
         invite.inviterToken,
       );
+      if (status.status == 'paired' && status.pairID != null) {
+        await _credentials.save(
+          serverURL: _serverURLController.text.trim(),
+          accessToken: invite.inviterToken,
+          recoveryCode: invite.recoveryCode,
+          pairID: status.pairID!,
+          role: 'inviter',
+          inviteURL: invite.inviteURL,
+          expiresAt: invite.expiresAt,
+        );
+      }
       if (mounted) setState(() => _status = status);
     } on PairingApiException catch (error) {
       if (mounted) setState(() => _errorMessage = error.message);
@@ -89,86 +205,55 @@ class _InviterSetupPageState extends State<InviterSetupPage> {
   Widget build(BuildContext context) {
     final invite = _invite;
     final status = _status;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Invite your partner')),
+    return HanddrawnScaffold(
+      title: 'Invite your partner',
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.all(24),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
           children: [
-            Text(
-              'Start your little home',
-              style: Theme.of(context).textTheme.headlineMedium,
+            const PairingHeader(),
+            const SizedBox(height: 20),
+            ServerSetupCard(
+              formKey: _formKey,
+              controller: _serverURLController,
+              isLoading: _isLoading,
+              onCreateInvite: () => _createInvite(),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Choose the private server for your home, then create one invitation for your partner.',
-            ),
-            const SizedBox(height: 24),
-            Form(
-              key: _formKey,
-              child: TextFormField(
-                controller: _serverURLController,
-                autocorrect: false,
-                keyboardType: TextInputType.url,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'Server URL or domain',
-                  hintText: 'https://pawmate.example.com',
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Enter your server URL.';
-                  }
-                  return null;
-                },
-              ),
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: _isLoading ? null : _createInvite,
-              icon: const Icon(Icons.favorite_border),
-              label: Text(_isLoading ? 'Working…' : 'Create invitation'),
+            const SizedBox(height: 18),
+            PairingRecoveryCard(
+              serverController: _recoveryServerController,
+              codeController: _recoveryCodeController,
+              isLoading: _isLoading,
+              onRecover: () => _recoverAccess(),
             ),
             if (_errorMessage != null) ...[
-              const SizedBox(height: 16),
-              Text(
-                _errorMessage!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
+              const SizedBox(height: 18),
+              PairingErrorNote(message: _errorMessage!),
             ],
             if (invite != null) ...[
-              const SizedBox(height: 28),
-              const Text(
-                'Share this one-time invitation link',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              const SizedBox(height: 22),
+              InviteResultCard(
+                invite: invite,
+                recoveryCode: invite.recoveryCode,
+                status: status,
+                isLoading: _isLoading,
+                onCopy: () => _copyInvite(),
+                onRefresh: () => _refreshStatus(),
               ),
-              const SizedBox(height: 8),
-              SelectableText(invite.inviteURL),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: _copyInvite,
-                icon: const Icon(Icons.copy),
-                label: const Text('Copy invitation link'),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Expires ${invite.expiresAt.toLocal()}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 20),
-              OutlinedButton.icon(
-                onPressed: _isLoading ? null : _refreshStatus,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Check pairing status'),
-              ),
-              if (status != null) ...[
-                const SizedBox(height: 12),
+            ],
+            if (_recoveredCode != null) ...[
+              const SizedBox(height: 18),
+              if (_recoveredRole != null)
                 Text(
-                  status.status == 'paired'
-                      ? 'Your partner is paired!'
-                      : 'Waiting for your partner to accept…',
+                  'Access restored for the ${_recoveredRole!} member.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: PawmateColors.ink,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ],
+              const SizedBox(height: 8),
+              RecoveryCodeNote(recoveryCode: _recoveredCode!),
             ],
           ],
         ),

@@ -10,15 +10,21 @@ import (
 	"testing"
 
 	"pawmate/server/internal/config"
+	"pawmate/server/internal/pairing"
 )
 
 func TestPairingHTTPFlow(t *testing.T) {
+	service, err := pairing.OpenService(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer service.Close()
 	router := NewRouter(config.Config{
 		Environment:  "test",
 		InstanceID:   "test-instance",
 		InstanceName: "Test Home",
 		Port:         "8080",
-	}, slog.New(slog.NewTextHandler(testLogWriter{}, nil)))
+	}, slog.New(slog.NewTextHandler(testLogWriter{}, nil)), service)
 
 	createResponse := performJSONRequest(t, router, http.MethodPost, "/api/v1/pairing/invites", `{"server_url":"https://home.example.test"}`, "")
 	if createResponse.Code != http.StatusCreated {
@@ -27,9 +33,10 @@ func TestPairingHTTPFlow(t *testing.T) {
 	var invite struct {
 		InviteURL    string `json:"invite_url"`
 		InviterToken string `json:"inviter_token"`
+		RecoveryCode string `json:"recovery_code"`
 	}
 	decodeJSON(t, createResponse, &invite)
-	if invite.InviteURL == "" || invite.InviterToken == "" {
+	if invite.InviteURL == "" || invite.InviterToken == "" || invite.RecoveryCode == "" {
 		t.Fatalf("create response did not contain invite credentials: %+v", invite)
 	}
 

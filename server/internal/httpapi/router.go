@@ -12,7 +12,7 @@ import (
 )
 
 // NewRouter creates the versioned HTTP API served by a Pawmate instance.
-func NewRouter(cfg config.Config, logger *slog.Logger) *gin.Engine {
+func NewRouter(cfg config.Config, logger *slog.Logger, pairingService *pairing.Service) *gin.Engine {
 	if cfg.Environment == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -30,12 +30,12 @@ func NewRouter(cfg config.Config, logger *slog.Logger) *gin.Engine {
 	}), gin.Recovery())
 
 	router.GET("/healthz", healthHandler)
-	pairingService := pairing.NewService()
 	api := router.Group("/api/v1")
 	api.GET("/instance", instanceHandler(cfg))
 	api.POST("/pairing/invites", createInviteHandler(pairingService))
 	api.POST("/pairing/invites/redeem", redeemInviteHandler(pairingService))
 	api.GET("/pairing/invites/status", pairingStatusHandler(pairingService))
+	api.POST("/pairing/recover", recoverPairingHandler(pairingService))
 
 	return router
 }
