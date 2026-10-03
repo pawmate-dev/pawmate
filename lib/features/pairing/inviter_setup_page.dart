@@ -11,6 +11,7 @@ import 'widgets/recovery_code_note.dart';
 import 'widgets/server_setup_card.dart';
 import 'pairing_api.dart';
 import 'pairing_credentials.dart';
+import 'paired_home_page.dart';
 
 class InviterSetupPage extends StatefulWidget {
   const InviterSetupPage({super.key});
@@ -166,7 +167,22 @@ class _InviterSetupPageState extends State<InviterSetupPage> {
         invite.inviterToken,
       );
       if (status.status == 'paired' && status.pairID != null) {
-        await _credentials.save(
+        var storageWarning = false;
+        try {
+          await _credentials.save(
+            serverURL: _serverURLController.text.trim(),
+            accessToken: invite.inviterToken,
+            recoveryCode: invite.recoveryCode,
+            pairID: status.pairID!,
+            role: 'inviter',
+            inviteURL: invite.inviteURL,
+            expiresAt: invite.expiresAt,
+          );
+        } on Object {
+          storageWarning = true;
+        }
+        if (!mounted) return;
+        final credentials = SavedPairingCredentials(
           serverURL: _serverURLController.text.trim(),
           accessToken: invite.inviterToken,
           recoveryCode: invite.recoveryCode,
@@ -175,6 +191,22 @@ class _InviterSetupPageState extends State<InviterSetupPage> {
           inviteURL: invite.inviteURL,
           expiresAt: invite.expiresAt,
         );
+        Navigator.of(context).pushAndRemoveUntil<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => PairedHomePage(
+              credentials: credentials,
+              session: PairingSession(
+                pairID: status.pairID,
+                role: 'inviter',
+                status: 'paired',
+              ),
+              recoveryCodeToSave: storageWarning ? invite.recoveryCode : null,
+              storageWarning: storageWarning,
+            ),
+          ),
+          (_) => false,
+        );
+        return;
       }
       if (mounted) setState(() => _status = status);
     } on PairingApiException catch (error) {

@@ -23,6 +23,7 @@ POST /api/v1/pairing/invites
 GET  /api/v1/pairing/invites/status
 POST /api/v1/pairing/invites/redeem
 POST /api/v1/pairing/recover
+GET  /api/v1/pairing/session
 ```
 
 Create an invitation by sending the configured server URL:
@@ -50,6 +51,12 @@ enter the same server URL and recovery code in the restore section. The server
 rotates the access token and recovery code, so the old recovery code can no
 longer be used. A recovery code belongs to one member; the two members should
 keep separate codes.
+
+On app startup, the client calls `GET /api/v1/pairing/session` with its saved
+bearer token. The endpoint accepts either member's current token and returns
+the role, pair ID, and pairing state. Invalid or rotated tokens receive HTTP
+401 and should open recovery; network failures should offer retry without
+treating the credentials as invalid.
 
 For the Android emulator, configure the Flutter client with
 `http://10.0.2.2:8080`; `10.0.2.2` maps to the development machine's loopback

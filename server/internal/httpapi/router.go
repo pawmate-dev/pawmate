@@ -36,6 +36,7 @@ func NewRouter(cfg config.Config, logger *slog.Logger, pairingService *pairing.S
 	api.POST("/pairing/invites/redeem", redeemInviteHandler(pairingService))
 	api.GET("/pairing/invites/status", pairingStatusHandler(pairingService))
 	api.POST("/pairing/recover", recoverPairingHandler(pairingService))
+	api.GET("/pairing/session", pairingSessionHandler(pairingService))
 
 	return router
 }

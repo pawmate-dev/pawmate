@@ -5,7 +5,7 @@ import 'package:app_links/app_links.dart';
 
 import 'design/pawmate_theme.dart';
 import 'features/pairing/invitee_accept_page.dart';
-import 'features/pairing/inviter_setup_page.dart';
+import 'features/pairing/pairing_session_gate.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -62,7 +62,7 @@ class _PawmateAppState extends State<PawmateApp> {
       navigatorKey: _navigatorKey,
       title: 'Pawmate',
       theme: buildPawmateTheme(),
-      home: const InviterSetupPage(),
+      home: const PairingSessionGate(),
     );
   }
 }

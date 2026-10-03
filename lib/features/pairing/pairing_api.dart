@@ -77,11 +77,29 @@ class RecoveredCredentials {
   final String role;
 }
 
+/// Represents the authenticated member's server-side pairing session.
+class PairingSession {
+  const PairingSession({required this.role, required this.status, this.pairID});
+
+  factory PairingSession.fromJson(Map<String, dynamic> json) {
+    return PairingSession(
+      pairID: json['pair_id'] as String?,
+      role: json['role'] as String,
+      status: json['status'] as String,
+    );
+  }
+
+  final String? pairID;
+  final String role;
+  final String status;
+}
+
 /// Represents a user-facing error returned while calling the pairing API.
 class PairingApiException implements Exception {
-  const PairingApiException(this.message);
+  const PairingApiException(this.message, {this.statusCode});
 
   final String message;
+  final int? statusCode;
 
   @override
   String toString() => message;
@@ -108,7 +126,10 @@ class PairingApi {
         .timeout(const Duration(seconds: 10));
 
     if (response.statusCode != 201) {
-      throw PairingApiException(_messageFor(response));
+      throw PairingApiException(
+        _messageFor(response),
+        statusCode: response.statusCode,
+      );
     }
     return PairingInvite.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
@@ -129,9 +150,36 @@ class PairingApi {
         .timeout(const Duration(seconds: 10));
 
     if (response.statusCode != 200) {
-      throw PairingApiException(_messageFor(response));
+      throw PairingApiException(
+        _messageFor(response),
+        statusCode: response.statusCode,
+      );
     }
     return PairingStatus.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  /// Validates an access token and returns the member's current pairing state.
+  Future<PairingSession> validateSession(
+    String rawServerURL,
+    String accessToken,
+  ) async {
+    final serverURL = _parseServerURL(rawServerURL);
+    final response = await _client
+        .get(
+          serverURL.resolve('/api/v1/pairing/session'),
+          headers: {'authorization': 'Bearer $accessToken'},
+        )
+        .timeout(const Duration(seconds: 10));
+
+    if (response.statusCode != 200) {
+      throw PairingApiException(
+        _messageFor(response),
+        statusCode: response.statusCode,
+      );
+    }
+    return PairingSession.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
     );
   }
@@ -148,7 +196,10 @@ class PairingApi {
         .timeout(const Duration(seconds: 10));
 
     if (response.statusCode != 200) {
-      throw PairingApiException(_messageFor(response));
+      throw PairingApiException(
+        _messageFor(response),
+        statusCode: response.statusCode,
+      );
     }
     return PairingStatus.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
@@ -170,7 +221,10 @@ class PairingApi {
         .timeout(const Duration(seconds: 10));
 
     if (response.statusCode != 200) {
-      throw PairingApiException(_messageFor(response));
+      throw PairingApiException(
+        _messageFor(response),
+        statusCode: response.statusCode,
+      );
     }
     return RecoveredCredentials.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,

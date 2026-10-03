@@ -43,6 +43,12 @@ type recoverPairingResponse struct {
 	Role         string `json:"role"`
 }
 
+type pairingSessionResponse struct {
+	PairID string `json:"pair_id,omitempty"`
+	Role   string `json:"role"`
+	Status string `json:"status"`
+}
+
 // createInviteHandler creates an invitation for the configured server URL.
 func createInviteHandler(service *pairing.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -135,6 +141,27 @@ func recoverPairingHandler(service *pairing.Service) gin.HandlerFunc {
 			PairID:       credentials.PairID,
 			RecoveryCode: credentials.RecoveryCode,
 			Role:         credentials.Role,
+		})
+	}
+}
+
+// pairingSessionHandler validates either member's access token.
+func pairingSessionHandler(service *pairing.Service) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := strings.TrimSpace(strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer "))
+		session, err := service.Authenticate(token)
+		if err != nil {
+			if errors.Is(err, pairing.ErrInvalidSessionToken) {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid_session_token"})
+				return
+			}
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal_error"})
+			return
+		}
+		c.JSON(http.StatusOK, pairingSessionResponse{
+			PairID: session.PairID,
+			Role:   session.Role,
+			Status: session.Status,
 		})
 	}
 }

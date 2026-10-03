@@ -22,6 +22,7 @@ var (
 	ErrInvalidInvite       = errors.New("invite is invalid")
 	ErrExpiredInvite       = errors.New("invite has expired")
 	ErrInvalidInviterToken = errors.New("inviter token is invalid")
+	ErrInvalidSessionToken = errors.New("session token is invalid")
 	ErrInvalidRecoveryCode = errors.New("recovery code is invalid")
 	ErrNotPaired           = errors.New("instance is not paired")
 	ErrInvalidServerURL    = errors.New("server URL is invalid")
@@ -51,6 +52,13 @@ type RecoveredCredentials struct {
 	Role         string
 	AccessToken  string
 	RecoveryCode string
+}
+
+// Session is the authenticated member and pairing state for a client device.
+type Session struct {
+	PairID string
+	Role   string
+	Status string
 }
 
 // Service stores the single couple relationship for one private instance.
@@ -259,6 +267,38 @@ func (service *Service) Status(inviterToken string) (PairingStatus, error) {
 		return PairingStatus{Status: "pending"}, nil
 	}
 	return PairingStatus{PairID: pairID.String, Status: "paired"}, nil
+}
+
+// Authenticate validates either member's access token and returns its session.
+func (service *Service) Authenticate(accessToken string) (Session, error) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	var paired bool
+	var pairID sql.NullString
+	var inviterHash, inviteeHash []byte
+	err := service.db.QueryRow(`
+		SELECT paired, pair_id, inviter_token_hash, invitee_token_hash
+		FROM pairing_state WHERE id = 1`).Scan(&paired, &pairID, &inviterHash, &inviteeHash)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Session{}, ErrInvalidSessionToken
+	}
+	if err != nil {
+		return Session{}, fmt.Errorf("read pairing session: %w", err)
+	}
+
+	providedHash := tokenHash(strings.TrimSpace(accessToken))
+	if sameHash(inviterHash, providedHash) {
+		status := "pending"
+		if paired {
+			status = "paired"
+		}
+		return Session{PairID: pairID.String, Role: "inviter", Status: status}, nil
+	}
+	if paired && sameHash(inviteeHash, providedHash) {
+		return Session{PairID: pairID.String, Role: "invitee", Status: "paired"}, nil
+	}
+	return Session{}, ErrInvalidSessionToken
 }
 
 // Recover rotates one member's credentials using their single-use recovery code.

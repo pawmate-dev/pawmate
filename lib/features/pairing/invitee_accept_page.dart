@@ -6,8 +6,8 @@ import '../../design/handdrawn_scaffold.dart';
 import '../../design/pawmate_theme.dart';
 import 'pairing_api.dart';
 import 'pairing_credentials.dart';
+import 'paired_home_page.dart';
 import 'widgets/pairing_error_note.dart';
-import 'widgets/recovery_code_note.dart';
 
 /// Lets the invitee review and accept a one-time link opened from another app.
 class InviteeAcceptPage extends StatefulWidget {
@@ -24,7 +24,6 @@ class _InviteeAcceptPageState extends State<InviteeAcceptPage> {
   final _credentials = PairingCredentials();
   bool _isLoading = false;
   String? _errorMessage;
-  String? _recoveryCode;
 
   @override
   void dispose() {
@@ -54,7 +53,7 @@ class _InviteeAcceptPageState extends State<InviteeAcceptPage> {
           'The server did not return complete pairing credentials.',
         );
       }
-      if (mounted) setState(() => _recoveryCode = recoveryCode);
+      var storageWarning = false;
       try {
         await _credentials.save(
           serverURL: serverURL,
@@ -64,13 +63,31 @@ class _InviteeAcceptPageState extends State<InviteeAcceptPage> {
           role: 'invitee',
         );
       } on Object {
-        if (mounted) {
-          setState(() {
-            _errorMessage =
-                'You are paired, but this device could not store access securely. Keep the recovery code below safe.';
-          });
-        }
+        storageWarning = true;
       }
+      if (!mounted) return;
+      final credentials = SavedPairingCredentials(
+        serverURL: serverURL,
+        accessToken: token,
+        recoveryCode: recoveryCode,
+        pairID: pairID,
+        role: 'invitee',
+      );
+      Navigator.of(context).pushAndRemoveUntil<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => PairedHomePage(
+            credentials: credentials,
+            session: PairingSession(
+              pairID: pairID,
+              role: 'invitee',
+              status: 'paired',
+            ),
+            recoveryCodeToSave: recoveryCode,
+            storageWarning: storageWarning,
+          ),
+        ),
+        (_) => false,
+      );
     } on PairingApiException catch (error) {
       if (mounted) setState(() => _errorMessage = error.message);
     } on Object {
@@ -85,7 +102,6 @@ class _InviteeAcceptPageState extends State<InviteeAcceptPage> {
   @override
   Widget build(BuildContext context) {
     final serverURL = widget.inviteUri.queryParameters['server'] ?? 'Unknown';
-    final accepted = _recoveryCode != null;
     return HanddrawnScaffold(
       title: 'Join your little home',
       body: SafeArea(
@@ -104,7 +120,7 @@ class _InviteeAcceptPageState extends State<InviteeAcceptPage> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    accepted ? 'You are home!' : 'You have been invited',
+                    'You have been invited',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       color: PawmateColors.ink,
                       fontWeight: FontWeight.w700,
@@ -112,9 +128,7 @@ class _InviteeAcceptPageState extends State<InviteeAcceptPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    accepted
-                        ? 'Your place in this private home is now connected.'
-                        : 'Accepting this one-time invitation will pair your device with your partner.',
+                    'Accepting this one-time invitation will pair your device with your partner.',
                     style: const TextStyle(
                       color: PawmateColors.softBrown,
                       height: 1.4,
@@ -136,24 +150,18 @@ class _InviteeAcceptPageState extends State<InviteeAcceptPage> {
                       fontFamily: 'monospace',
                     ),
                   ),
-                  if (!accepted) ...[
-                    const SizedBox(height: 20),
-                    HanddrawnButton(
-                      onPressed: _isLoading ? null : _acceptInvite,
-                      icon: Icons.favorite_border,
-                      label: _isLoading ? 'Joining…' : 'Accept invitation',
-                    ),
-                  ],
+                  const SizedBox(height: 20),
+                  HanddrawnButton(
+                    onPressed: _isLoading ? null : _acceptInvite,
+                    icon: Icons.favorite_border,
+                    label: _isLoading ? 'Joining…' : 'Accept invitation',
+                  ),
                 ],
               ),
             ),
             if (_errorMessage != null) ...[
               const SizedBox(height: 18),
               PairingErrorNote(message: _errorMessage!),
-            ],
-            if (_recoveryCode case final code?) ...[
-              const SizedBox(height: 18),
-              RecoveryCodeNote(recoveryCode: code),
             ],
           ],
         ),
