@@ -4,20 +4,30 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'package:pawmate/main.dart';
 import 'package:pawmate/features/pairing/device_login_page.dart';
-import 'package:pawmate/design/pawmate_theme.dart';
+import 'package:pawmate/design/theme/pawmate_theme.dart';
 
 void main() {
-  testWidgets('inviter setup page accepts a server URL', (
+  testWidgets('access landing page opens focused invitation and device flows', (
     WidgetTester tester,
   ) async {
     FlutterSecureStorage.setMockInitialValues({});
     await tester.pumpWidget(const PawmateApp());
     await tester.pumpAndSettle();
 
+    expect(find.text('Create invitation'), findsOneWidget);
+    expect(find.text('Accept invitation'), findsOneWidget);
+    expect(find.text('Restore data'), findsOneWidget);
+    expect(find.text('Add device'), findsOneWidget);
+    expect(find.byType(TextFormField), findsNothing);
+    await tester.tap(find.text('Create invitation'));
+    await tester.pumpAndSettle();
     expect(find.text('Invite your partner'), findsOneWidget);
     expect(find.text('Server URL or domain'), findsOneWidget);
     expect(find.text('Create invitation'), findsOneWidget);
-    await tester.tap(find.text('Sign in on another device'));
+    expect(find.text('Recovery code'), findsNothing);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add device'));
     await tester.pumpAndSettle();
     expect(find.text('Device login code'), findsOneWidget);
     expect(find.text('Device name'), findsOneWidget);

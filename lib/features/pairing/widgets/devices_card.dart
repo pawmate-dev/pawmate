@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../design/handdrawn_button.dart';
-import '../../../design/handdrawn_card.dart';
+import '../../../design/components/handdrawn_button.dart';
+import '../../../design/components/handdrawn_card.dart';
 import '../pairing_api.dart';
 import '../pairing_credentials.dart';
 import '../pairing_session_gate.dart';
 import 'pairing_error_note.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 /// Lists the current member's devices and authorizes additional installations.
 class DevicesCard extends StatefulWidget {
@@ -53,11 +54,13 @@ class _DevicesCardState extends State<DevicesCard> {
           (_) => false,
         );
       } else {
-        setState(() => _error = error.message);
+        setState(() => _error = AppLocalizations.of(context)!.requestFailed);
       }
     } on Object {
       if (mounted) {
-        setState(() => _error = 'Could not reach your server. Try again.');
+        setState(
+          () => _error = AppLocalizations.of(context)!.couldNotReachRetry,
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -83,21 +86,20 @@ class _DevicesCardState extends State<DevicesCard> {
 
   /// Confirms and removes a remote device without signing out this installation.
   Future<void> _removeDevice(PairingDevice device) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Sign out ${device.name}?'),
-        content: const Text(
-          'This device will need a new login code to reconnect. Your other devices will stay signed in.',
-        ),
+        title: Text(l10n.signOutDeviceTitle(device.name)),
+        content: Text(l10n.signOutDeviceHelp),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Sign out device'),
+            child: Text(l10n.signOutDevice),
           ),
         ],
       ),
@@ -113,16 +115,15 @@ class _DevicesCardState extends State<DevicesCard> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final code = _code;
     return HanddrawnCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('My devices', style: Theme.of(context).textTheme.titleLarge),
+          Text(l10n.myDevices, style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
-          const Text(
-            'Keep your phone, tablet and computer connected to the same home. Only your own devices appear here.',
-          ),
+          Text(l10n.devicesHelp),
           if (_devices != null) ...[
             for (final device in _devices!)
               Padding(
@@ -136,14 +137,18 @@ class _DevicesCardState extends State<DevicesCard> {
                     ),
                     Text(
                       device.current
-                          ? 'This device'
-                          : 'Added ${device.createdAt.toLocal().toString().split(' ').first}',
+                          ? l10n.thisDevice
+                          : l10n.addedDate(
+                              MaterialLocalizations.of(
+                                context,
+                              ).formatShortDate(device.createdAt.toLocal()),
+                            ),
                     ),
                     if (!device.current)
                       TextButton.icon(
                         onPressed: _busy ? null : () => _removeDevice(device),
                         icon: const Icon(Icons.logout),
-                        label: const Text('Sign out device'),
+                        label: Text(l10n.signOutDevice),
                       ),
                   ],
                 ),
@@ -157,35 +162,39 @@ class _DevicesCardState extends State<DevicesCard> {
           TextButton.icon(
             onPressed: _busy ? null : _refresh,
             icon: const Icon(Icons.refresh),
-            label: const Text('Refresh devices'),
+            label: Text(l10n.refreshDevices),
           ),
           HanddrawnButton(
-            label: 'Add a device',
+            label: l10n.addDeviceAction,
             icon: Icons.add_to_queue,
             onPressed: _busy ? null : _addDevice,
           ),
           if (code != null) ...[
             const SizedBox(height: 16),
-            const Text(
-              'On your new device, choose Sign in on another device. Use the server address above and this code. Keep it private: it grants access as you.',
-            ),
+            Text(l10n.newDeviceCodeHelp),
             const SizedBox(height: 8),
             SelectableText(
               code.code,
               style: const TextStyle(fontFamily: 'monospace'),
             ),
-            Text('Single use · Expires ${code.expiresAt.toLocal()}'),
+            Text(
+              l10n.singleUseExpires(
+                MaterialLocalizations.of(
+                  context,
+                ).formatMediumDate(code.expiresAt.toLocal()),
+              ),
+            ),
             TextButton.icon(
               onPressed: () async {
                 await Clipboard.setData(ClipboardData(text: code.code));
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Device login code copied')),
+                    SnackBar(content: Text(l10n.deviceCodeCopied)),
                   );
                 }
               },
               icon: const Icon(Icons.copy),
-              label: const Text('Copy login code'),
+              label: Text(l10n.copyLoginCode),
             ),
           ],
           if (_error != null) ...[

@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 
-import '../../design/handdrawn_card.dart';
-import '../../design/handdrawn_scaffold.dart';
-import '../../design/pawmate_theme.dart';
+import '../../design/components/handdrawn_card.dart';
+import '../../design/layouts/handdrawn_scaffold.dart';
+import '../../design/theme/colors.dart';
+import '../../design/icons/access/access_doodle_icon.dart';
 import 'pairing_api.dart';
 import 'pairing_credentials.dart';
 import 'paired_home_page.dart';
 import 'widgets/pairing_error_note.dart';
 import 'widgets/pairing_recovery_card.dart';
 import 'device_login_page.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 /// Restores an invalid or reinstalled member session with its recovery code.
 class PairingRecoveryPage extends StatefulWidget {
@@ -88,11 +90,13 @@ class _PairingRecoveryPageState extends State<PairingRecoveryPage> {
         (_) => false,
       );
     } on PairingApiException catch (error) {
-      if (mounted) setState(() => _errorMessage = _userMessage(error));
+      if (mounted) {
+        setState(() => _errorMessage = _userMessage(context, error));
+      }
     } on Object {
       if (mounted) {
         setState(
-          () => _errorMessage = 'Could not restore this home. Try again.',
+          () => _errorMessage = AppLocalizations.of(context)!.couldNotRestore,
         );
       }
     } finally {
@@ -100,18 +104,19 @@ class _PairingRecoveryPageState extends State<PairingRecoveryPage> {
     }
   }
 
-  String _userMessage(PairingApiException error) {
+  String _userMessage(BuildContext context, PairingApiException error) {
+    final l10n = AppLocalizations.of(context)!;
     return switch (error.message) {
-      'invalid_recovery_code' => 'That recovery code is not valid anymore.',
-      'not_paired' => 'This server does not have a completed couple pairing.',
-      _ => error.message,
+      'invalid_recovery_code' => l10n.invalidRecoveryCode,
+      'not_paired' => l10n.notPaired,
+      _ => l10n.requestFailed,
     };
   }
 
   @override
   Widget build(BuildContext context) {
     return HanddrawnScaffold(
-      title: 'Restore your home',
+      title: AppLocalizations.of(context)!.restoreHome,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
@@ -121,18 +126,25 @@ class _PairingRecoveryPageState extends State<PairingRecoveryPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.key_outlined, color: PawmateColors.ink),
+                  const Center(
+                    child: AccessDoodleIcon(
+                      symbol: AccessDoodle.restoreHome,
+                      color: PawmateColors.lavender,
+                    ),
+                  ),
                   const SizedBox(height: 10),
                   Text(
-                    'Let’s reconnect you',
+                    AppLocalizations.of(context)!.reconnectTitle,
+                    textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       color: PawmateColors.ink,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
-                    'This device needs a new login. If another device is still signed in, use its device login code. Recovery is for lost access and signs out all your other devices.',
+                  Text(
+                    AppLocalizations.of(context)!.reconnectHelp,
+                    textAlign: TextAlign.start,
                     style: TextStyle(
                       color: PawmateColors.softBrown,
                       height: 1.4,
@@ -151,7 +163,7 @@ class _PairingRecoveryPageState extends State<PairingRecoveryPage> {
                       ),
                     ),
               icon: const Icon(Icons.devices),
-              label: const Text('Sign in with a device login code'),
+              label: Text(AppLocalizations.of(context)!.deviceCodeSignIn),
             ),
             const SizedBox(height: 18),
             PairingRecoveryCard(

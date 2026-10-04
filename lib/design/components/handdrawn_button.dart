@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'pawmate_theme.dart';
+import '../theme/colors.dart';
 
 /// A semantic Material button styled as a small hand-drawn paper label.
 class HanddrawnButton extends StatelessWidget {

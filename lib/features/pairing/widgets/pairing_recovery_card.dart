@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../../design/handdrawn_button.dart';
-import '../../../design/handdrawn_card.dart';
-import '../../../design/handdrawn_text_field.dart';
-import '../../../design/pawmate_theme.dart';
+import '../../../design/components/handdrawn_button.dart';
+import '../../../design/components/handdrawn_card.dart';
+import '../../../design/components/handdrawn_text_field.dart';
+import '../../../design/theme/colors.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 /// Collects the server address and recovery code after an app reinstall.
 class PairingRecoveryCard extends StatelessWidget {
@@ -22,28 +23,29 @@ class PairingRecoveryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return HanddrawnCard(
       color: const Color(0xFFF0F6F0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Restoring an existing home?',
+            l10n.restoreExistingHome,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               color: PawmateColors.ink,
               fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Use your recovery code if you have lost access. Recovery signs out all your devices and replaces the recovery code; your partner stays signed in. To add a device, use a device login code instead.',
+          Text(
+            l10n.recoveryHelp,
             style: TextStyle(color: PawmateColors.softBrown, height: 1.35),
           ),
           const SizedBox(height: 14),
           HanddrawnTextField(
             controller: serverController,
-            labelText: 'Existing server URL',
-            hintText: 'https://pawmate.example.com',
+            labelText: l10n.serverUrlExisting,
+            hintText: l10n.serverUrlHint,
             prefixIcon: Icons.link,
           ),
           const SizedBox(height: 12),
@@ -52,8 +54,8 @@ class PairingRecoveryCard extends StatelessWidget {
             autocorrect: false,
             enableSuggestions: false,
             textCapitalization: TextCapitalization.none,
-            decoration: const InputDecoration(
-              labelText: 'Recovery code',
+            decoration: InputDecoration(
+              labelText: l10n.recoveryCode,
               prefixIcon: Icon(Icons.key_outlined),
             ),
           ),
@@ -61,7 +63,7 @@ class PairingRecoveryCard extends StatelessWidget {
           HanddrawnButton(
             onPressed: isLoading ? null : onRecover,
             icon: Icons.settings_backup_restore,
-            label: isLoading ? 'Restoring access…' : 'Restore access',
+            label: isLoading ? l10n.restoringAccess : l10n.restoreAccess,
             primary: false,
           ),
         ],

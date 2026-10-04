@@ -58,18 +58,16 @@ const sky = Color(0xFF9DC6D8);
 
 ## Component architecture
 
-Build visual behavior into reusable widgets under `lib/design/` or the project's
-equivalent design-system directory:
+Build visual behavior into reusable widgets under `lib/design/`, organized by
+responsibility:
 
 ```text
-HanddrawnScaffold
-HanddrawnCard
-HanddrawnButton
-HanddrawnTextField
-DoodleIcon
-Sticker
-PaperNote
-CoupleAvatar
+theme/          colors.dart, spacing.dart, pawmate_theme.dart
+layouts/        HanddrawnScaffold
+components/     HanddrawnCard, HanddrawnActionCard, HanddrawnButton,
+                HanddrawnTextField, ChatMessageBubble
+illustrations/  Reusable decorative compositions
+icons/          purpose-based icon families and the shared crayon renderer
 ```
 
 Feature screens should compose these components instead of drawing one-off
@@ -77,7 +75,27 @@ cards, buttons, fields, or borders. Components must expose semantic Flutter
 properties (`label`, `enabled`, `onPressed`, validation state) and preserve
 standard focus, keyboard, screen-reader, and test behavior.
 
+Import color and spacing tokens directly from their `theme/` modules. Keep
+networking, credentials, message delivery and other business state in
+`lib/features/`; the design layer must not depend on feature implementations.
+Future Sticker, PaperNote and CoupleAvatar widgets belong in `components/`,
+not new top-level categories. See `lib/design/README.md` for the directory contract.
+
 ## Stable hand-drawn rendering
+
+### Crayon and oil-pastel icon language
+
+This is a core Pawmate visual requirement: icon strokes should have visible
+pigment grain, bounded hand-drawn jitter or irregular pressure overdraw, with
+slightly rough or intermittently broken edges. Simulate crayon or oil pastel
+catching on paper for a casual, warm, handmade feel. Do not substitute clean
+uniform vector outlines or blurry noise for this texture. Silhouettes must
+remain recognizable and actions must retain readable native text labels.
+
+Organize Dart icon families by purpose under `lib/design/icons/` (for example
+`access/`, followed by `chat/`, `home/` and `play/` when needed), sharing the
+seeded stroke renderer. Keep texture deterministic across rebuilds, theme
+changes with identical inputs, screenshots and golden tests.
 
 - Implement organic outlines and paper details with `CustomPainter` or SVG
   assets where appropriate.
@@ -161,6 +179,10 @@ backups are sensitive in different ways:
 - Do not encode meaning with color alone; pair color with text, iconography, or
   shape.
 - Keep body text readable at large accessibility text scales.
+- Route all user-facing Flutter copy, validation feedback, semantics, and
+  tooltips through the localization resources. Provide English and Simplified
+  Chinese translations. Chinese sentence endings must not use terminal Chinese
+  punctuation such as `。`, `！`, or `？`; keep UI copy concise and natural.
 - Route user-facing strings through the localization layer when one is added;
   do not hard-code text into painters or image assets.
 

@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-import 'package:pawmate/design/pawmate_theme.dart';
+import 'package:pawmate/design/theme/pawmate_theme.dart';
 import 'package:pawmate/features/chat/chat_api.dart';
 import 'package:pawmate/features/chat/chat_controller.dart';
 import 'package:pawmate/features/chat/chat_page.dart';

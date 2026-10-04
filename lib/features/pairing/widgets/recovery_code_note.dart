@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../design/handdrawn_card.dart';
-import '../../../design/pawmate_theme.dart';
+import '../../../design/components/handdrawn_card.dart';
+import '../../../design/theme/colors.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 /// Presents a member's one-time recovery code with a copy action.
 class RecoveryCodeNote extends StatelessWidget {
@@ -12,21 +13,22 @@ class RecoveryCodeNote extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return HanddrawnCard(
       color: const Color(0xFFFFF3CF),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Keep this recovery code somewhere safe',
+          Text(
+            l10n.recoveryCodeTitle,
             style: TextStyle(
               color: PawmateColors.ink,
               fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Save this outside the app. Recovery signs out all your devices and issues a new code. For another phone, tablet or computer, use Add a device instead.',
+          Text(
+            l10n.recoveryCodeHelp,
             style: TextStyle(color: PawmateColors.softBrown, height: 1.35),
           ),
           const SizedBox(height: 12),
@@ -47,12 +49,12 @@ class RecoveryCodeNote extends StatelessWidget {
                 await Clipboard.setData(ClipboardData(text: recoveryCode));
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Recovery code copied')),
+                    SnackBar(content: Text(l10n.recoveryCodeCopied)),
                   );
                 }
               },
               icon: const Icon(Icons.copy_outlined),
-              label: const Text('Copy code'),
+              label: Text(l10n.copyCode),
             ),
           ),
         ],

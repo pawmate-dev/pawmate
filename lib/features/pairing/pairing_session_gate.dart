@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 
-import '../../design/handdrawn_button.dart';
-import '../../design/handdrawn_card.dart';
-import '../../design/handdrawn_scaffold.dart';
-import '../../design/pawmate_theme.dart';
+import '../../design/components/handdrawn_button.dart';
+import '../../design/components/handdrawn_card.dart';
+import '../../design/layouts/handdrawn_scaffold.dart';
+import '../../design/theme/colors.dart';
 import 'inviter_setup_page.dart';
+import 'login_methods_page.dart';
 import 'paired_home_page.dart';
 import 'pairing_api.dart';
 import 'pairing_credentials.dart';
 import 'pairing_recovery_page.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 /// Loads local credentials and routes to onboarding, recovery, or the home.
 class PairingSessionGate extends StatefulWidget {
@@ -18,7 +20,7 @@ class PairingSessionGate extends StatefulWidget {
   State<PairingSessionGate> createState() => _PairingSessionGateState();
 }
 
-enum _GateView { loading, setup, recovery, home, error }
+enum _GateView { loading, setup, invitation, recovery, home, error }
 
 class _PairingSessionGateState extends State<PairingSessionGate> {
   final _api = PairingApi();
@@ -86,7 +88,7 @@ class _PairingSessionGateState extends State<PairingSessionGate> {
         }
         if (mounted) setState(() => _view = _GateView.home);
       } else if (session.status == 'pending' && session.role == 'inviter') {
-        setState(() => _view = _GateView.setup);
+        setState(() => _view = _GateView.invitation);
       } else {
         setState(() => _view = _GateView.recovery);
       }
@@ -103,8 +105,7 @@ class _PairingSessionGateState extends State<PairingSessionGate> {
     } on Object {
       if (mounted) {
         setState(() {
-          _errorMessage =
-              'Could not read or validate saved access on this device.';
+          _errorMessage = AppLocalizations.of(context)!.savedAccessError;
           _view = _GateView.error;
         });
       }
@@ -113,16 +114,17 @@ class _PairingSessionGateState extends State<PairingSessionGate> {
 
   String _messageFor(PairingApiException error) {
     if (error.statusCode == null) {
-      return 'Could not reach your Pawmate server. Check your connection and retry.';
+      return AppLocalizations.of(context)!.serverAccessError;
     }
-    return error.message;
+    return AppLocalizations.of(context)!.serverAccessError;
   }
 
   @override
   Widget build(BuildContext context) {
     return switch (_view) {
       _GateView.loading => const _SessionLoadingPage(),
-      _GateView.setup => const InviterSetupPage(),
+      _GateView.setup => const LoginMethodsPage(),
+      _GateView.invitation => const InviterSetupPage(),
       _GateView.recovery => PairingRecoveryPage(
         initialServerURL: _saved?.serverURL ?? '',
       ),
@@ -131,7 +133,8 @@ class _PairingSessionGateState extends State<PairingSessionGate> {
         session: _session!,
       ),
       _GateView.error => _SessionErrorPage(
-        message: _errorMessage ?? 'Could not restore this session.',
+        message:
+            _errorMessage ?? AppLocalizations.of(context)!.sessionRestoreError,
         onRetry: _restoreSession,
         onSetup: () => setState(() => _view = _GateView.setup),
       ),
@@ -144,15 +147,16 @@ class _SessionLoadingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const HanddrawnScaffold(
-      title: 'Opening your home',
+    final l10n = AppLocalizations.of(context)!;
+    return HanddrawnScaffold(
+      title: l10n.openingHome,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             CircularProgressIndicator(color: PawmateColors.lavender),
             SizedBox(height: 16),
-            Text('Checking your saved access…'),
+            Text(l10n.checkingSavedAccess),
           ],
         ),
       ),
@@ -174,7 +178,7 @@ class _SessionErrorPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return HanddrawnScaffold(
-      title: 'Finding your home',
+      title: AppLocalizations.of(context)!.findingHome,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -204,14 +208,14 @@ class _SessionErrorPage extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               HanddrawnButton(
-                label: 'Try again',
+                label: AppLocalizations.of(context)!.tryAgain,
                 icon: Icons.refresh,
                 onPressed: onRetry,
               ),
               const SizedBox(height: 10),
               TextButton(
                 onPressed: onSetup,
-                child: const Text('Set up a server'),
+                child: Text(AppLocalizations.of(context)!.chooseSignInMethod),
               ),
             ],
           ),

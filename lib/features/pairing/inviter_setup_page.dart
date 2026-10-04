@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../design/handdrawn_scaffold.dart';
+import '../../design/layouts/handdrawn_scaffold.dart';
 import 'widgets/invite_result_card.dart';
 import 'widgets/pairing_error_note.dart';
-import 'widgets/pairing_header.dart';
-import 'widgets/pairing_recovery_card.dart';
 import 'widgets/server_setup_card.dart';
 import 'pairing_api.dart';
 import 'pairing_credentials.dart';
-import '../../design/handdrawn_button.dart';
-import 'device_login_page.dart';
 import 'paired_home_page.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 class InviterSetupPage extends StatefulWidget {
   const InviterSetupPage({super.key});
@@ -23,8 +20,6 @@ class InviterSetupPage extends StatefulWidget {
 class _InviterSetupPageState extends State<InviterSetupPage> {
   final _formKey = GlobalKey<FormState>();
   final _serverURLController = TextEditingController();
-  final _recoveryServerController = TextEditingController();
-  final _recoveryCodeController = TextEditingController();
   final _api = PairingApi();
   final _credentials = PairingCredentials();
   PairingInvite? _invite;
@@ -67,8 +62,6 @@ class _InviterSetupPageState extends State<InviterSetupPage> {
   @override
   void dispose() {
     _serverURLController.dispose();
-    _recoveryServerController.dispose();
-    _recoveryCodeController.dispose();
     _api.close();
     super.dispose();
   }
@@ -99,74 +92,27 @@ class _InviterSetupPageState extends State<InviterSetupPage> {
       } on Object {
         if (mounted) {
           setState(() {
-            _errorMessage =
-                'Invitation created. Save the recovery code below; this device could not store it securely.';
+            _errorMessage = AppLocalizations.of(
+              context,
+            )!.invitationCreatedStorageWarning;
           });
         }
       }
     } on PairingApiException catch (error) {
-      if (mounted) setState(() => _errorMessage = error.message);
-    } on Object {
       if (mounted) {
-        setState(() => _errorMessage = 'Could not reach the Pawmate server.');
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  /// Restores this member's access after reinstall and rotates the recovery code.
-  Future<void> _recoverAccess() async {
-    setState(() {
-      _errorMessage = null;
-      _isLoading = true;
-    });
-    try {
-      final credentials = await _api.recover(
-        _recoveryServerController.text,
-        _recoveryCodeController.text,
-      );
-      final saved = SavedPairingCredentials(
-        serverURL: _recoveryServerController.text.trim(),
-        accessToken: credentials.accessToken,
-        recoveryCode: credentials.recoveryCode,
-        pairID: credentials.pairID,
-        role: credentials.role,
-      );
-      var storageWarning = false;
-      try {
-        await _credentials.save(
-          serverURL: saved.serverURL,
-          accessToken: saved.accessToken,
-          recoveryCode: saved.recoveryCode,
-          pairID: saved.pairID,
-          role: saved.role,
+        final l10n = AppLocalizations.of(context)!;
+        setState(
+          () => _errorMessage = error.message.startsWith('Use an HTTP')
+              ? l10n.invalidServerAddress
+              : error.statusCode == null
+              ? l10n.serverUnreachable
+              : l10n.requestFailed,
         );
-      } on Object {
-        storageWarning = true;
       }
-      if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil<void>(
-        MaterialPageRoute<void>(
-          builder: (_) => PairedHomePage(
-            credentials: saved,
-            session: PairingSession(
-              role: credentials.role,
-              status: 'paired',
-              pairID: credentials.pairID,
-            ),
-            recoveryCodeToSave: credentials.recoveryCode,
-            storageWarning: storageWarning,
-          ),
-        ),
-        (_) => false,
-      );
-    } on PairingApiException catch (error) {
-      if (mounted) setState(() => _errorMessage = error.message);
     } on Object {
       if (mounted) {
         setState(
-          () => _errorMessage = 'Could not restore access to this home.',
+          () => _errorMessage = AppLocalizations.of(context)!.serverUnreachable,
         );
       }
     } finally {
@@ -227,11 +173,19 @@ class _InviterSetupPageState extends State<InviterSetupPage> {
         return;
       }
       if (mounted) setState(() => _status = status);
-    } on PairingApiException catch (error) {
-      if (mounted) setState(() => _errorMessage = error.message);
+    } on PairingApiException {
+      if (mounted) {
+        setState(
+          () => _errorMessage = AppLocalizations.of(context)!.requestFailed,
+        );
+      }
     } on Object {
       if (mounted) {
-        setState(() => _errorMessage = 'Could not reach the server.');
+        setState(
+          () => _errorMessage = AppLocalizations.of(
+            context,
+          )!.serverUnreachableShort,
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -244,9 +198,9 @@ class _InviterSetupPageState extends State<InviterSetupPage> {
     if (invite == null) return;
     await Clipboard.setData(ClipboardData(text: invite.inviteURL));
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Invitation link copied')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppLocalizations.of(context)!.invitationCopied)),
+      );
     }
   }
 
@@ -256,39 +210,18 @@ class _InviterSetupPageState extends State<InviterSetupPage> {
     final invite = _invite;
     final status = _status;
     return HanddrawnScaffold(
-      title: 'Invite your partner',
+      title: AppLocalizations.of(context)!.invitePartner,
       body: SafeArea(
         child: ListView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
           children: [
-            const PairingHeader(),
-            const SizedBox(height: 18),
-            HanddrawnButton(
-              label: 'Sign in on another device',
-              icon: Icons.devices,
-              primary: false,
-              onPressed: _isLoading
-                  ? null
-                  : () => Navigator.of(context).push<void>(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const DeviceLoginPage(),
-                      ),
-                    ),
-            ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 6),
             ServerSetupCard(
               formKey: _formKey,
               controller: _serverURLController,
               isLoading: _isLoading,
               onCreateInvite: () => _createInvite(),
-            ),
-            const SizedBox(height: 18),
-            PairingRecoveryCard(
-              serverController: _recoveryServerController,
-              codeController: _recoveryCodeController,
-              isLoading: _isLoading,
-              onRecover: () => _recoverAccess(),
             ),
             if (_errorMessage != null) ...[
               const SizedBox(height: 18),

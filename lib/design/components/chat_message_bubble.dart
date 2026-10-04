@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'handdrawn_card.dart';
-import 'pawmate_theme.dart';
+import '../theme/colors.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 /// A native, selectable message on a stable paper surface with a labeled state.
 class ChatMessageBubble extends StatelessWidget {
@@ -58,7 +59,7 @@ class ChatMessageBubble extends StatelessWidget {
                   TextButton.icon(
                     onPressed: onRetry,
                     icon: const Icon(Icons.refresh),
-                    label: const Text('Retry message'),
+                    label: Text(AppLocalizations.of(context)!.retryMessage),
                   ),
               ],
             ),

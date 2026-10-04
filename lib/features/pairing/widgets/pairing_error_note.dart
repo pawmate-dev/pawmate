@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../design/handdrawn_card.dart';
-import '../../../design/pawmate_theme.dart';
+import '../../../design/components/handdrawn_card.dart';
+import '../../../design/theme/colors.dart';
 
 /// Shows a readable network or validation error on a paper-like note.
 class PairingErrorNote extends StatelessWidget {

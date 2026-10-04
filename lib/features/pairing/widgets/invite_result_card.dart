@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../../design/handdrawn_button.dart';
-import '../../../design/handdrawn_card.dart';
-import '../../../design/pawmate_theme.dart';
+import '../../../design/components/handdrawn_button.dart';
+import '../../../design/components/handdrawn_card.dart';
+import '../../../design/theme/colors.dart';
 import '../pairing_api.dart';
 import 'recovery_code_note.dart';
+import '../../../l10n/generated/app_localizations.dart';
 
 /// Displays the one-time invitation and the current partner pairing status.
 class InviteResultCard extends StatelessWidget {
@@ -27,6 +28,7 @@ class InviteResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final isPaired = status?.status == 'paired';
     return HanddrawnCard(
       color: const Color(0xFFF4F0FF),
@@ -44,9 +46,7 @@ class InviteResultCard extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  isPaired
-                      ? 'Your home is connected!'
-                      : 'Your invitation is ready',
+                  isPaired ? l10n.homeConnected : l10n.invitationReady,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: PawmateColors.ink,
                     fontWeight: FontWeight.w700,
@@ -57,9 +57,7 @@ class InviteResultCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            isPaired
-                ? 'You and your partner can start making memories together.'
-                : 'Share this one-time link with your partner.',
+            isPaired ? l10n.connectedMemories : l10n.shareInvitation,
             style: const TextStyle(
               color: PawmateColors.softBrown,
               height: 1.35,
@@ -80,12 +78,16 @@ class InviteResultCard extends StatelessWidget {
             HanddrawnButton(
               onPressed: onCopy,
               icon: Icons.copy_outlined,
-              label: 'Copy invitation',
+              label: l10n.copyInvitation,
               primary: false,
             ),
             const SizedBox(height: 10),
             Text(
-              'Expires ${invite.expiresAt.toLocal()}',
+              l10n.expiresAt(
+                MaterialLocalizations.of(
+                  context,
+                ).formatMediumDate(invite.expiresAt.toLocal()),
+              ),
               style: const TextStyle(
                 color: PawmateColors.softBrown,
                 fontSize: 12,
@@ -98,13 +100,13 @@ class InviteResultCard extends StatelessWidget {
           HanddrawnButton(
             onPressed: isLoading ? null : onRefresh,
             icon: isPaired ? Icons.check_circle_outline : Icons.refresh,
-            label: isPaired ? 'Pairing complete' : 'Check pairing status',
+            label: isPaired ? l10n.pairingComplete : l10n.checkPairingStatus,
             primary: isPaired,
           ),
           if (!isPaired && status != null) ...[
             const SizedBox(height: 10),
-            const Text(
-              'Waiting for your partner to accept…',
+            Text(
+              l10n.waitingForPartner,
               style: TextStyle(color: PawmateColors.softBrown),
             ),
           ],

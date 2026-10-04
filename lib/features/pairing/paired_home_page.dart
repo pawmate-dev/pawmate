@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../design/handdrawn_card.dart';
-import '../../design/handdrawn_scaffold.dart';
-import '../../design/pawmate_theme.dart';
+import '../../design/components/handdrawn_card.dart';
+import '../../design/layouts/handdrawn_scaffold.dart';
+import '../../design/theme/colors.dart';
 import 'pairing_api.dart';
 import 'pairing_credentials.dart';
 import 'widgets/pairing_error_note.dart';
@@ -12,6 +12,7 @@ import '../chat/chat_api.dart';
 import '../chat/chat_controller.dart';
 import '../chat/chat_page.dart';
 import 'pairing_session_gate.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 /// Opens the couple space on chat, retaining drafts and scroll state between tabs.
 class PairedHomePage extends StatefulWidget {
@@ -83,10 +84,12 @@ class _PairedHomePageState extends State<PairedHomePage>
         ..showSnackBar(
           SnackBar(
             content: Text(
-              '${_chat.unreadCount} unread messages from your partner',
+              AppLocalizations.of(
+                context,
+              )!.unreadFromPartner(_chat.unreadCount),
             ),
             action: SnackBarAction(
-              label: 'Open chat',
+              label: AppLocalizations.of(context)!.openChat,
               onPressed: () => _selectTab(0),
             ),
           ),
@@ -115,77 +118,76 @@ class _PairedHomePageState extends State<PairedHomePage>
   }
 
   @override
-  Widget build(BuildContext context) => HanddrawnScaffold(
-    title: ['Our conversation', 'Play corner', 'Our little home'][_tab],
-    bottomNavigationBar: NavigationBar(
-      selectedIndex: _tab,
-      onDestinationSelected: _selectTab,
-      destinations: [
-        NavigationDestination(
-          icon: Badge(
-            isLabelVisible: _chat.unreadCount > 0,
-            label: Text(
-              _chat.unreadCount > 99 ? '99+' : '${_chat.unreadCount}',
-            ),
-            child: const Icon(Icons.chat_bubble_outline),
-          ),
-          label: 'Chat',
-          tooltip: 'Chat, ${_chat.unreadCount} unread messages',
-        ),
-        const NavigationDestination(
-          icon: Icon(Icons.sports_esports_outlined),
-          label: 'Play',
-        ),
-        const NavigationDestination(
-          icon: Icon(Icons.home_outlined),
-          label: 'Home',
-        ),
-      ],
-    ),
-    body: Column(
-      children: [
-        if (_homeNotice &&
-            (widget.recoveryCodeToSave != null || widget.storageWarning))
-          MaterialBanner(
-            content: Text(
-              widget.storageWarning
-                  ? 'This device could not save its login. Open Home for reconnect instructions.'
-                  : 'Save your recovery code in Home before leaving.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => _selectTab(2),
-                child: const Text('View Home'),
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return HanddrawnScaffold(
+      title: [l10n.ourConversation, l10n.playCorner, l10n.ourLittleHome][_tab],
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _tab,
+        onDestinationSelected: _selectTab,
+        destinations: [
+          NavigationDestination(
+            icon: Badge(
+              isLabelVisible: _chat.unreadCount > 0,
+              label: Text(
+                _chat.unreadCount > 99 ? '99+' : '${_chat.unreadCount}',
               ),
-            ],
+              child: const Icon(Icons.chat_bubble_outline),
+            ),
+            label: l10n.chat,
+            tooltip: l10n.chatUnread(_chat.unreadCount),
           ),
-        Expanded(
-          child: IndexedStack(
-            index: _tab,
-            children: [
-              ChatPage(controller: _chat, active: _tab == 0),
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: HanddrawnCard(
-                    child: Text(
-                      'A little corner for playing together.\nGames will arrive here later.',
-                    ),
+          NavigationDestination(
+            icon: Icon(Icons.sports_esports_outlined),
+            label: l10n.play,
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            label: l10n.home,
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          if (_homeNotice &&
+              (widget.recoveryCodeToSave != null || widget.storageWarning))
+            MaterialBanner(
+              content: Text(
+                widget.storageWarning
+                    ? l10n.loginNotSaved
+                    : l10n.saveRecoveryCodeHome,
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => _selectTab(2),
+                  child: Text(l10n.viewHome),
+                ),
+              ],
+            ),
+          Expanded(
+            child: IndexedStack(
+              index: _tab,
+              children: [
+                ChatPage(controller: _chat, active: _tab == 0),
+                Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: HanddrawnCard(child: Text(l10n.gamesComing)),
                   ),
                 ),
-              ),
-              _HomeDetails(
-                credentials: widget.credentials,
-                session: widget.session,
-                recoveryCodeToSave: widget.recoveryCodeToSave,
-                storageWarning: widget.storageWarning,
-              ),
-            ],
+                _HomeDetails(
+                  credentials: widget.credentials,
+                  session: widget.session,
+                  recoveryCodeToSave: widget.recoveryCodeToSave,
+                  storageWarning: widget.storageWarning,
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 /// Keeps pairing details, device management and recovery notes in the Home tab.
@@ -204,6 +206,7 @@ class _HomeDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return SafeArea(
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
@@ -220,7 +223,7 @@ class _HomeDetails extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'You are home together',
+                  l10n.youAreHome,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     color: PawmateColors.ink,
                     fontWeight: FontWeight.w700,
@@ -228,15 +231,15 @@ class _HomeDetails extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'This device is connected as the ${session.role}.',
+                  l10n.connectedAsRole(session.role),
                   style: const TextStyle(
                     color: PawmateColors.softBrown,
                     height: 1.4,
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Private server',
+                Text(
+                  l10n.privateServer,
                   style: TextStyle(
                     color: PawmateColors.softBrown,
                     fontSize: 12,
@@ -253,7 +256,7 @@ class _HomeDetails extends StatelessWidget {
                 if (session.pairID != null) ...[
                   const SizedBox(height: 12),
                   Text(
-                    'Home ID: ${session.pairID}',
+                    l10n.homeId(session.pairID!),
                     style: const TextStyle(
                       color: PawmateColors.softBrown,
                       fontSize: 12,
@@ -267,8 +270,8 @@ class _HomeDetails extends StatelessWidget {
             const SizedBox(height: 18),
             PairingErrorNote(
               message: recoveryCodeToSave != null
-                  ? 'This device could not securely save its login. Keep the recovery code below in case the app closes.'
-                  : 'This device could not securely save its login. If the app closes, generate a new login code on another signed-in device to reconnect.',
+                  ? l10n.storageWarningRecovery
+                  : l10n.storageWarningDevice,
             ),
           ],
           if (recoveryCodeToSave != null) ...[

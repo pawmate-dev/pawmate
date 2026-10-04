@@ -2,9 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:app_links/app_links.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
-import 'design/pawmate_theme.dart';
+import 'design/theme/pawmate_theme.dart';
+import 'l10n/generated/app_localizations.dart';
+import 'l10n/locale_controller.dart';
 import 'features/pairing/invitee_accept_page.dart';
+import 'features/pairing/invitation_link.dart';
 import 'features/pairing/pairing_session_gate.dart';
 
 void main() {
@@ -21,6 +25,7 @@ class PawmateApp extends StatefulWidget {
 }
 
 class _PawmateAppState extends State<PawmateApp> {
+  final _localeController = LocaleController();
   final _navigatorKey = GlobalKey<NavigatorState>();
   final _appLinks = AppLinks();
   String? _lastOpenedInvite;
@@ -29,20 +34,29 @@ class _PawmateAppState extends State<PawmateApp> {
   @override
   void initState() {
     super.initState();
+    _localeController.addListener(_localeChanged);
+    _localeController.restore();
     _linkSubscription = _appLinks.uriLinkStream.listen(_openInviteLink);
   }
+
+  void _localeChanged() => setState(() {});
 
   @override
   void dispose() {
     _linkSubscription?.cancel();
+    _localeController
+      ..removeListener(_localeChanged)
+      ..dispose();
     super.dispose();
   }
 
   void _openInviteLink(Uri uri) {
-    if (uri.scheme != 'pawmate' || uri.host != 'pair') return;
-    if (uri.queryParameters['server'] == null ||
-        uri.queryParameters['code'] == null ||
-        _lastOpenedInvite == uri.toString()) {
+    try {
+      InvitationLink.parse(uri.toString());
+    } on FormatException {
+      return;
+    }
+    if (_lastOpenedInvite == uri.toString()) {
       return;
     }
     _lastOpenedInvite = uri.toString();
@@ -55,14 +69,25 @@ class _PawmateAppState extends State<PawmateApp> {
     });
   }
 
-  /// Configures the app theme and starts the inviter onboarding flow.
+  /// Configures the app theme and restores a session or offers access methods.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: _navigatorKey,
       title: 'Pawmate',
       theme: buildPawmateTheme(),
-      home: const PairingSessionGate(),
+      locale: _localeController.locale,
+      supportedLocales: const [Locale('en'), Locale('zh')],
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ],
+      home: LocaleControllerScope(
+        notifier: _localeController,
+        child: const PairingSessionGate(),
+      ),
     );
   }
 }

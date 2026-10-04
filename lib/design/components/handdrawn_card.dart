@@ -1,19 +1,25 @@
 import 'package:flutter/material.dart';
 
-import 'pawmate_theme.dart';
+import '../theme/colors.dart';
 
 /// A paper-like surface with a stable ink outline and a small offset shadow.
 class HanddrawnCard extends StatelessWidget {
-  const HanddrawnCard({required this.child, super.key, this.color});
+  const HanddrawnCard({
+    required this.child,
+    super.key,
+    this.color,
+    this.padding = const EdgeInsets.all(20),
+  });
 
   final Widget child;
   final Color? color;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: color ?? const Color(0xFFFFFCF3),
+        color: color ?? PawmateColors.card,
         border: Border.all(color: PawmateColors.ink, width: 2),
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(18),
@@ -29,7 +35,7 @@ class HanddrawnCard extends StatelessWidget {
           ),
         ],
       ),
-      padding: const EdgeInsets.all(20),
+      padding: padding,
       child: child,
     );
   }

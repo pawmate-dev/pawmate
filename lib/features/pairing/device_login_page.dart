@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 
-import '../../design/handdrawn_button.dart';
-import '../../design/handdrawn_card.dart';
-import '../../design/handdrawn_scaffold.dart';
-import '../../design/handdrawn_text_field.dart';
+import '../../design/components/handdrawn_button.dart';
+import '../../design/components/handdrawn_card.dart';
+import '../../design/layouts/handdrawn_scaffold.dart';
+import '../../design/components/handdrawn_text_field.dart';
+import '../../design/icons/access/access_doodle_icon.dart';
+import '../../design/theme/colors.dart';
+import '../../design/theme/spacing.dart';
 import 'paired_home_page.dart';
 import 'pairing_api.dart';
 import 'pairing_credentials.dart';
 import 'widgets/pairing_error_note.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 /// Adds this installation to an existing member using a one-time login code.
 class DeviceLoginPage extends StatefulWidget {
@@ -21,11 +25,17 @@ class _DeviceLoginPageState extends State<DeviceLoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _server = TextEditingController();
   final _code = TextEditingController();
-  final _name = TextEditingController(text: PairingApi.defaultDeviceName);
+  final _name = TextEditingController();
   final _api = PairingApi();
   final _credentials = PairingCredentials();
   bool _busy = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _name.text = AppLocalizations.of(context)!.myDeviceName;
+  }
 
   @override
   void dispose() {
@@ -88,16 +98,13 @@ class _DeviceLoginPageState extends State<DeviceLoginPage> {
       if (mounted) {
         setState(
           () => _error = error.message == 'invalid_device_code'
-              ? 'This login code expired or was already used. Generate a new one on your signed-in device.'
-              : error.message,
+              ? AppLocalizations.of(context)!.invalidDeviceCode
+              : AppLocalizations.of(context)!.requestFailed,
         );
       }
     } on Object {
       if (mounted) {
-        setState(
-          () => _error =
-              'Could not sign in. Check your connection and try again.',
-        );
+        setState(() => _error = AppLocalizations.of(context)!.couldNotSignIn);
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -106,7 +113,7 @@ class _DeviceLoginPageState extends State<DeviceLoginPage> {
 
   @override
   Widget build(BuildContext context) => HanddrawnScaffold(
-    title: 'Bring your home along',
+    title: AppLocalizations.of(context)!.bringHome,
     body: SafeArea(
       child: ListView(
         padding: const EdgeInsets.all(20),
@@ -117,53 +124,69 @@ class _DeviceLoginPageState extends State<DeviceLoginPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const Center(
+                    child: AccessDoodleIcon(
+                      symbol: AccessDoodle.addDevice,
+                      color: PawmateColors.lavender,
+                    ),
+                  ),
+                  const SizedBox(height: PawmateSpace.large),
                   Text(
-                    'Sign in on another device',
-                    style: Theme.of(context).textTheme.titleLarge,
+                    AppLocalizations.of(context)!.signInAnotherDevice,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
-                    'On your signed-in phone, tablet or computer, open My devices and choose Add a device. Enter its server address and login code here. Your other devices will stay signed in.',
+                  Text(
+                    AppLocalizations.of(context)!.deviceSignInHelp,
+                    style: const TextStyle(
+                      color: PawmateColors.softBrown,
+                      height: 1.4,
+                    ),
                   ),
                   const SizedBox(height: 20),
                   HanddrawnTextField(
                     controller: _server,
-                    labelText: 'Server URL',
-                    hintText: 'https://pawmate.example.com',
+                    labelText: AppLocalizations.of(context)!.serverUrl,
+                    hintText: AppLocalizations.of(context)!.serverUrlHint,
                     validator: (value) => value == null || value.trim().isEmpty
-                        ? 'Enter your server address.'
+                        ? AppLocalizations.of(context)!.enterServerAddress
                         : null,
                   ),
                   const SizedBox(height: 12),
                   HanddrawnTextField(
                     controller: _code,
-                    labelText: 'Device login code',
+                    labelText: AppLocalizations.of(context)!.deviceLoginCode,
                     keyboardType: TextInputType.text,
                     validator: (value) => value == null || value.trim().isEmpty
-                        ? 'Enter the login code.'
+                        ? AppLocalizations.of(context)!.enterLoginCode
                         : null,
                   ),
                   const SizedBox(height: 12),
                   HanddrawnTextField(
                     controller: _name,
-                    labelText: 'Device name',
+                    labelText: AppLocalizations.of(context)!.deviceName,
                     keyboardType: TextInputType.text,
                     validator: (value) =>
                         value == null ||
                             value.trim().isEmpty ||
                             value.trim().runes.length > 80
-                        ? 'Use a name between 1 and 80 characters.'
+                        ? AppLocalizations.of(context)!.deviceNameLength
                         : null,
                   ),
                   const SizedBox(height: 20),
                   HanddrawnButton(
-                    label: _busy ? 'Signing in…' : 'Sign in',
+                    label: _busy
+                        ? AppLocalizations.of(context)!.signingIn
+                        : AppLocalizations.of(context)!.signIn,
                     icon: Icons.devices,
                     onPressed: _busy ? null : _signIn,
                   ),
                   TextButton(
                     onPressed: _busy ? null : () => Navigator.of(context).pop(),
-                    child: const Text('Back'),
+                    child: Text(AppLocalizations.of(context)!.back),
                   ),
                 ],
               ),

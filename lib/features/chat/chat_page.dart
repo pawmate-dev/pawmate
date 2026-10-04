@@ -2,9 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../design/chat_message_bubble.dart';
-import '../../design/handdrawn_card.dart';
+import '../../design/components/chat_message_bubble.dart';
+import '../../design/components/handdrawn_card.dart';
 import 'chat_controller.dart';
+import '../../l10n/generated/app_localizations.dart';
 
 /// The default couple-space tab, with text history and visibility-based receipts.
 class ChatPage extends StatefulWidget {
@@ -103,6 +104,7 @@ class _ChatPageState extends State<ChatPage> {
   Widget build(BuildContext context) => ListenableBuilder(
     listenable: widget.controller,
     builder: (context, _) {
+      final l10n = AppLocalizations.of(context)!;
       final chat = widget.controller;
       final messages = chat.messages.reversed.toList();
       final pending = chat.outbox.reversed.toList();
@@ -113,11 +115,11 @@ class _ChatPageState extends State<ChatPage> {
         children: [
           if (chat.error != null)
             MaterialBanner(
-              content: Text(chat.error!),
+              content: Text(l10n.chatError),
               actions: [
                 TextButton(
                   onPressed: () => chat.synchronize(),
-                  child: const Text('Retry'),
+                  child: Text(l10n.retry),
                 ),
               ],
             ),
@@ -127,14 +129,10 @@ class _ChatPageState extends State<ChatPage> {
               child: chat.loading
                   ? const Center(child: CircularProgressIndicator())
                   : messages.isEmpty && pending.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Padding(
                         padding: EdgeInsets.all(24),
-                        child: HanddrawnCard(
-                          child: Text(
-                            'Your first words together\nSend a little hello to start your shared journal.',
-                          ),
-                        ),
+                        child: HanddrawnCard(child: Text(l10n.firstWords)),
                       ),
                     )
                   : ListView.builder(
@@ -152,7 +150,9 @@ class _ChatPageState extends State<ChatPage> {
                             key: ValueKey('pending-${outgoing.clientID}'),
                             text: outgoing.text,
                             own: true,
-                            status: outgoing.sending ? 'Sending…' : 'Not sent',
+                            status: outgoing.sending
+                                ? l10n.sending
+                                : l10n.notSent,
                             onRetry: outgoing.sending
                                 ? null
                                 : () => chat.retry(outgoing),
@@ -166,8 +166,8 @@ class _ChatPageState extends State<ChatPage> {
                                 : () => chat.loadOlder(),
                             child: Text(
                               chat.historyLoading
-                                  ? 'Loading…'
-                                  : 'Load earlier messages',
+                                  ? l10n.loading
+                                  : l10n.loadEarlier,
                             ),
                           );
                         }
@@ -185,8 +185,8 @@ class _ChatPageState extends State<ChatPage> {
                           time: message.createdAt,
                           status: own
                               ? (message.id <= chat.partnerReadID
-                                    ? 'Read'
-                                    : 'Unread')
+                                    ? l10n.read
+                                    : l10n.unread)
                               : '',
                         );
                       },
@@ -197,7 +197,7 @@ class _ChatPageState extends State<ChatPage> {
             TextButton.icon(
               onPressed: _showLatest,
               icon: const Icon(Icons.arrow_downward),
-              label: Text('${chat.unreadCount} unread · Go to latest'),
+              label: Text(l10n.unreadGoLatest(chat.unreadCount)),
             ),
           SafeArea(
             top: false,
@@ -216,16 +216,16 @@ class _ChatPageState extends State<ChatPage> {
                         keyboardType: TextInputType.multiline,
                         textInputAction: TextInputAction.newline,
                         decoration: InputDecoration(
-                          labelText: 'Message your partner',
+                          labelText: l10n.messagePartner,
                           errorText: draft.text.runes.length > 4000
-                              ? 'Use up to 4000 characters.'
+                              ? l10n.messageTooLong
                               : null,
                         ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     IconButton.filled(
-                      tooltip: 'Send message',
+                      tooltip: l10n.sendMessage,
                       onPressed:
                           draft.text.trim().isEmpty ||
                               draft.text.runes.length > 4000 ||
