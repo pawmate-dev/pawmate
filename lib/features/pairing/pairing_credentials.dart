@@ -5,7 +5,13 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// Stores the current member credentials in the platform secure storage.
 class PairingCredentials {
   PairingCredentials({FlutterSecureStorage? storage})
-    : _storage = storage ?? const FlutterSecureStorage();
+    : _storage =
+          storage ??
+          const FlutterSecureStorage(
+            // This private client stores local Keychain items without cross-app sharing.
+            // macOS therefore needs no Keychain Sharing provisioning profile.
+            mOptions: MacOsOptions(usesDataProtectionKeychain: false),
+          );
 
   static const _storageKey = 'pawmate.pairing.credentials.v1';
 
@@ -73,6 +79,8 @@ class SavedPairingCredentials {
 
   final String serverURL;
   final String accessToken;
+
+  /// Empty on additional devices: device sign-in never transfers this secret.
   final String recoveryCode;
   final String pairID;
   final String role;

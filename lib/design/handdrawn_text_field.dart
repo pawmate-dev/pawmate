@@ -9,6 +9,7 @@ class HanddrawnTextField extends StatelessWidget {
     this.hintText,
     this.validator,
     this.prefixIcon,
+    this.keyboardType = TextInputType.url,
   });
 
   final TextEditingController controller;
@@ -16,13 +17,14 @@ class HanddrawnTextField extends StatelessWidget {
   final String? hintText;
   final FormFieldValidator<String>? validator;
   final IconData? prefixIcon;
+  final TextInputType keyboardType;
 
   @override
   Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
       autocorrect: false,
-      keyboardType: TextInputType.url,
+      keyboardType: keyboardType,
       textInputAction: TextInputAction.done,
       decoration: InputDecoration(
         labelText: labelText,

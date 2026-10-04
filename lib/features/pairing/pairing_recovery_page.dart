@@ -8,6 +8,7 @@ import 'pairing_credentials.dart';
 import 'paired_home_page.dart';
 import 'widgets/pairing_error_note.dart';
 import 'widgets/pairing_recovery_card.dart';
+import 'device_login_page.dart';
 
 /// Restores an invalid or reinstalled member session with its recovery code.
 class PairingRecoveryPage extends StatefulWidget {
@@ -131,7 +132,7 @@ class _PairingRecoveryPageState extends State<PairingRecoveryPage> {
                   ),
                   const SizedBox(height: 6),
                   const Text(
-                    'Your saved access credential was rejected. Use the recovery code for this member to issue a fresh one.',
+                    'This device needs a new login. If another device is still signed in, use its device login code. Recovery is for lost access and signs out all your other devices.',
                     style: TextStyle(
                       color: PawmateColors.softBrown,
                       height: 1.4,
@@ -139,6 +140,18 @@ class _PairingRecoveryPageState extends State<PairingRecoveryPage> {
                   ),
                 ],
               ),
+            ),
+            const SizedBox(height: 18),
+            TextButton.icon(
+              onPressed: _isLoading
+                  ? null
+                  : () => Navigator.of(context).push<void>(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const DeviceLoginPage(),
+                      ),
+                    ),
+              icon: const Icon(Icons.devices),
+              label: const Text('Sign in with a device login code'),
             ),
             const SizedBox(height: 18),
             PairingRecoveryCard(

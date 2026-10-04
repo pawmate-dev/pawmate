@@ -1,4 +1,4 @@
-package com.example.pawmate
+package dev.pawmate.app
 
 import io.flutter.embedding.android.FlutterActivity
 

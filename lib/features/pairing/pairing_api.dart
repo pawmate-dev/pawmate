@@ -94,6 +94,50 @@ class PairingSession {
   final String status;
 }
 
+/// A short-lived code created by an already authenticated device.
+class DeviceLoginCode {
+  const DeviceLoginCode({required this.code, required this.expiresAt});
+
+  final String code;
+  final DateTime expiresAt;
+}
+
+/// Credentials for an additional device; recovery secrets are not transferred.
+class DeviceLoginCredentials {
+  const DeviceLoginCredentials({
+    required this.accessToken,
+    required this.pairID,
+    required this.role,
+  });
+
+  final String accessToken;
+  final String pairID;
+  final String role;
+}
+
+/// Public metadata for one of the authenticated member's devices.
+class PairingDevice {
+  const PairingDevice({
+    required this.id,
+    required this.name,
+    required this.createdAt,
+    required this.current,
+  });
+
+  /// Decodes device metadata without access tokens or recovery codes.
+  factory PairingDevice.fromJson(Map<String, dynamic> json) => PairingDevice(
+    id: json['id'] as String,
+    name: json['name'] as String,
+    createdAt: DateTime.parse(json['created_at'] as String),
+    current: json['current'] as bool,
+  );
+
+  final String id;
+  final String name;
+  final DateTime createdAt;
+  final bool current;
+}
+
 /// Represents a user-facing error returned while calling the pairing API.
 class PairingApiException implements Exception {
   const PairingApiException(this.message, {this.statusCode});
@@ -111,6 +155,18 @@ class PairingApi {
 
   final http.Client _client;
 
+  /// Provides an editable display label without collecting a device identifier.
+  static String get defaultDeviceName => kIsWeb
+      ? 'Web browser'
+      : switch (defaultTargetPlatform) {
+          TargetPlatform.android => 'Android device',
+          TargetPlatform.iOS => 'iOS device',
+          TargetPlatform.macOS => 'Mac',
+          TargetPlatform.windows => 'Windows computer',
+          TargetPlatform.linux => 'Linux computer',
+          TargetPlatform.fuchsia => 'Fuchsia device',
+        };
+
   /// Releases the underlying HTTP client.
   void close() => _client.close();
 
@@ -121,7 +177,10 @@ class PairingApi {
         .post(
           serverURL.resolve('/api/v1/pairing/invites'),
           headers: const {'content-type': 'application/json'},
-          body: jsonEncode({'server_url': serverURL.toString()}),
+          body: jsonEncode({
+            'server_url': serverURL.toString(),
+            'device_name': defaultDeviceName,
+          }),
         )
         .timeout(const Duration(seconds: 10));
 
@@ -191,7 +250,7 @@ class PairingApi {
         .post(
           serverURL.resolve('/api/v1/pairing/invites/redeem'),
           headers: const {'content-type': 'application/json'},
-          body: jsonEncode({'code': code}),
+          body: jsonEncode({'code': code, 'device_name': defaultDeviceName}),
         )
         .timeout(const Duration(seconds: 10));
 
@@ -216,7 +275,10 @@ class PairingApi {
         .post(
           serverURL.resolve('/api/v1/pairing/recover'),
           headers: const {'content-type': 'application/json'},
-          body: jsonEncode({'recovery_code': recoveryCode.trim()}),
+          body: jsonEncode({
+            'recovery_code': recoveryCode.trim(),
+            'device_name': defaultDeviceName,
+          }),
         )
         .timeout(const Duration(seconds: 10));
 
@@ -231,22 +293,114 @@ class PairingApi {
     );
   }
 
-  /// Validates and normalizes a server URL before making a request.
-  Uri _parseServerURL(String rawServerURL) {
+  /// Lists the member's devices, identifying the token used for this request.
+  Future<List<PairingDevice>> getDevices(String server, String token) async {
+    final response = await _client
+        .get(
+          _parseServerURL(server).resolve('/api/v1/pairing/devices'),
+          headers: {'authorization': 'Bearer $token'},
+        )
+        .timeout(const Duration(seconds: 10));
+    final body = _deviceResponse(response, 200);
+    return (body['devices'] as List<dynamic>)
+        .map((item) => PairingDevice.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Issues a one-time login code while keeping all device sessions active.
+  Future<DeviceLoginCode> createDeviceLoginCode(
+    String server,
+    String token,
+  ) async {
+    final response = await _client
+        .post(
+          _parseServerURL(
+            server,
+          ).resolve('/api/v1/pairing/devices/login-codes'),
+          headers: {'authorization': 'Bearer $token'},
+        )
+        .timeout(const Duration(seconds: 10));
+    final body = _deviceResponse(response, 201);
+    return DeviceLoginCode(
+      code: body['code'] as String,
+      expiresAt: DateTime.parse(body['expires_at'] as String),
+    );
+  }
+
+  /// Exchanges a code for this installation's independent access token.
+  Future<DeviceLoginCredentials> redeemDeviceLoginCode(
+    String server,
+    String code,
+    String deviceName,
+  ) async {
+    final response = await _client
+        .post(
+          _parseServerURL(
+            server,
+          ).resolve('/api/v1/pairing/devices/login-codes/redeem'),
+          headers: const {'content-type': 'application/json'},
+          body: jsonEncode({
+            'code': code.trim(),
+            'device_name': deviceName.trim(),
+          }),
+        )
+        .timeout(const Duration(seconds: 10));
+    final body = _deviceResponse(response, 200);
+    return DeviceLoginCredentials(
+      accessToken: body['access_token'] as String,
+      pairID: body['pair_id'] as String,
+      role: body['role'] as String,
+    );
+  }
+
+  /// Removes one device owned by this member, leaving other tokens active.
+  Future<void> revokeDevice(String server, String token, String id) async {
+    final response = await _client
+        .delete(
+          _parseServerURL(
+            server,
+          ).resolve('/api/v1/pairing/devices/${Uri.encodeComponent(id)}'),
+          headers: {'authorization': 'Bearer $token'},
+        )
+        .timeout(const Duration(seconds: 10));
+    if (response.statusCode != 204) {
+      throw PairingApiException(
+        _messageFor(response),
+        statusCode: response.statusCode,
+      );
+    }
+  }
+
+  /// Checks a device endpoint's status before decoding its successful response.
+  Map<String, dynamic> _deviceResponse(http.Response response, int status) {
+    if (response.statusCode != status) {
+      throw PairingApiException(
+        _messageFor(response),
+        statusCode: response.statusCode,
+      );
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  /// Validates and normalizes HTTP or HTTPS instance URLs in every build mode.
+  static Uri _parseServerURL(String rawServerURL) {
     final uri = Uri.tryParse(rawServerURL.trim());
     if (uri == null ||
         uri.host.isEmpty ||
         (uri.scheme != 'http' && uri.scheme != 'https') ||
-        (uri.scheme == 'http' && !kDebugMode) ||
         uri.userInfo.isNotEmpty ||
         uri.hasQuery ||
         uri.hasFragment) {
       throw const PairingApiException(
-        'Use an HTTPS server URL in release builds. HTTP is allowed only in debug builds.',
+        'Use an HTTP or HTTPS server URL without credentials, a query, or a fragment.',
       );
     }
     return uri.replace(path: uri.path.replaceFirst(RegExp(r'/+$'), ''));
   }
+
+  /// Shares the instance URL policy with other authenticated feature clients.
+  static Uri parseServerURL(String rawServerURL) =>
+      _parseServerURL(rawServerURL);
 
   /// Extracts a safe error message from a JSON API response.
   String _messageFor(http.Response response) {

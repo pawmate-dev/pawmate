@@ -4,10 +4,16 @@ import 'pawmate_theme.dart';
 
 /// Provides the paper surface and restrained app bar shared by Pawmate pages.
 class HanddrawnScaffold extends StatelessWidget {
-  const HanddrawnScaffold({required this.title, required this.body, super.key});
+  const HanddrawnScaffold({
+    required this.title,
+    required this.body,
+    super.key,
+    this.bottomNavigationBar,
+  });
 
   final String title;
   final Widget body;
+  final Widget? bottomNavigationBar;
 
   @override
   Widget build(BuildContext context) {
@@ -22,6 +28,7 @@ class HanddrawnScaffold extends StatelessWidget {
         ),
       ),
       body: body,
+      bottomNavigationBar: bottomNavigationBar,
     );
   }
 }

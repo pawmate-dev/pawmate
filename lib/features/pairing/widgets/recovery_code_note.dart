@@ -26,7 +26,7 @@ class RecoveryCodeNote extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           const Text(
-            'If you reinstall the app, use this code with your server address to restore your place in this home.',
+            'Save this outside the app. Recovery signs out all your devices and issues a new code. For another phone, tablet or computer, use Add a device instead.',
             style: TextStyle(color: PawmateColors.softBrown, height: 1.35),
           ),
           const SizedBox(height: 12),

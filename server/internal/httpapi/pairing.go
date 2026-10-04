@@ -11,7 +11,8 @@ import (
 )
 
 type createInviteRequest struct {
-	ServerURL string `json:"server_url" binding:"required"`
+	ServerURL  string `json:"server_url" binding:"required"`
+	DeviceName string `json:"device_name" binding:"max=80"`
 }
 
 type createInviteResponse struct {
@@ -22,7 +23,8 @@ type createInviteResponse struct {
 }
 
 type redeemInviteRequest struct {
-	Code string `json:"code" binding:"required"`
+	Code       string `json:"code" binding:"required"`
+	DeviceName string `json:"device_name" binding:"max=80"`
 }
 
 type pairingStatusResponse struct {
@@ -34,6 +36,7 @@ type pairingStatusResponse struct {
 
 type recoverPairingRequest struct {
 	RecoveryCode string `json:"recovery_code" binding:"required"`
+	DeviceName   string `json:"device_name" binding:"max=80"`
 }
 
 type recoverPairingResponse struct {
@@ -58,7 +61,7 @@ func createInviteHandler(service *pairing.Service) gin.HandlerFunc {
 			return
 		}
 
-		invite, err := service.CreateInvite(request.ServerURL)
+		invite, err := service.CreateInvite(request.ServerURL, request.DeviceName)
 		if err != nil {
 			status := http.StatusInternalServerError
 			code := "internal_error"
@@ -92,7 +95,7 @@ func redeemInviteHandler(service *pairing.Service) gin.HandlerFunc {
 			return
 		}
 
-		status, err := service.RedeemInvite(request.Code)
+		status, err := service.RedeemInvite(request.Code, request.DeviceName)
 		if err != nil {
 			code := "invalid_invite"
 			httpStatus := http.StatusConflict
@@ -123,7 +126,7 @@ func recoverPairingHandler(service *pairing.Service) gin.HandlerFunc {
 			return
 		}
 
-		credentials, err := service.Recover(request.RecoveryCode)
+		credentials, err := service.Recover(request.RecoveryCode, request.DeviceName)
 		if err != nil {
 			code := "invalid_recovery_code"
 			status := http.StatusUnauthorized

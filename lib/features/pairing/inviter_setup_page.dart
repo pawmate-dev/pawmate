@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../design/handdrawn_scaffold.dart';
-import '../../design/pawmate_theme.dart';
 import 'widgets/invite_result_card.dart';
 import 'widgets/pairing_error_note.dart';
 import 'widgets/pairing_header.dart';
 import 'widgets/pairing_recovery_card.dart';
-import 'widgets/recovery_code_note.dart';
 import 'widgets/server_setup_card.dart';
 import 'pairing_api.dart';
 import 'pairing_credentials.dart';
+import '../../design/handdrawn_button.dart';
+import 'device_login_page.dart';
 import 'paired_home_page.dart';
 
 class InviterSetupPage extends StatefulWidget {
@@ -31,8 +31,6 @@ class _InviterSetupPageState extends State<InviterSetupPage> {
   PairingStatus? _status;
   String? _errorMessage;
   bool _isLoading = false;
-  String? _recoveredCode;
-  String? _recoveredRole;
 
   @override
   void initState() {
@@ -121,8 +119,6 @@ class _InviterSetupPageState extends State<InviterSetupPage> {
   Future<void> _recoverAccess() async {
     setState(() {
       _errorMessage = null;
-      _recoveredCode = null;
-      _recoveredRole = null;
       _isLoading = true;
     });
     try {
@@ -130,19 +126,41 @@ class _InviterSetupPageState extends State<InviterSetupPage> {
         _recoveryServerController.text,
         _recoveryCodeController.text,
       );
-      await _credentials.save(
+      final saved = SavedPairingCredentials(
         serverURL: _recoveryServerController.text.trim(),
         accessToken: credentials.accessToken,
         recoveryCode: credentials.recoveryCode,
         pairID: credentials.pairID,
         role: credentials.role,
       );
-      if (mounted) {
-        setState(() {
-          _recoveredCode = credentials.recoveryCode;
-          _recoveredRole = credentials.role;
-        });
+      var storageWarning = false;
+      try {
+        await _credentials.save(
+          serverURL: saved.serverURL,
+          accessToken: saved.accessToken,
+          recoveryCode: saved.recoveryCode,
+          pairID: saved.pairID,
+          role: saved.role,
+        );
+      } on Object {
+        storageWarning = true;
       }
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => PairedHomePage(
+            credentials: saved,
+            session: PairingSession(
+              role: credentials.role,
+              status: 'paired',
+              pairID: credentials.pairID,
+            ),
+            recoveryCodeToSave: credentials.recoveryCode,
+            storageWarning: storageWarning,
+          ),
+        ),
+        (_) => false,
+      );
     } on PairingApiException catch (error) {
       if (mounted) setState(() => _errorMessage = error.message);
     } on Object {
@@ -245,6 +263,19 @@ class _InviterSetupPageState extends State<InviterSetupPage> {
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
           children: [
             const PairingHeader(),
+            const SizedBox(height: 18),
+            HanddrawnButton(
+              label: 'Sign in on another device',
+              icon: Icons.devices,
+              primary: false,
+              onPressed: _isLoading
+                  ? null
+                  : () => Navigator.of(context).push<void>(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const DeviceLoginPage(),
+                      ),
+                    ),
+            ),
             const SizedBox(height: 20),
             ServerSetupCard(
               formKey: _formKey,
@@ -273,19 +304,6 @@ class _InviterSetupPageState extends State<InviterSetupPage> {
                 onCopy: () => _copyInvite(),
                 onRefresh: () => _refreshStatus(),
               ),
-            ],
-            if (_recoveredCode != null) ...[
-              const SizedBox(height: 18),
-              if (_recoveredRole != null)
-                Text(
-                  'Access restored for the ${_recoveredRole!} member.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: PawmateColors.ink,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              const SizedBox(height: 8),
-              RecoveryCodeNote(recoveryCode: _recoveredCode!),
             ],
           ],
         ),

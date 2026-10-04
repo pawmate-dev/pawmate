@@ -36,7 +36,7 @@ class PairingRecoveryCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Enter the same server address and the recovery code saved for this member.',
+            'Use your recovery code if you have lost access. Recovery signs out all your devices and replaces the recovery code; your partner stays signed in. To add a device, use a device login code instead.',
             style: TextStyle(color: PawmateColors.softBrown, height: 1.35),
           ),
           const SizedBox(height: 14),

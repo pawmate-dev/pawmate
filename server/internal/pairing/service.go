@@ -13,6 +13,10 @@ import (
 	"sync"
 	"time"
 
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+	"gorm.io/gorm/logger"
 	_ "modernc.org/sqlite"
 )
 
@@ -56,14 +60,15 @@ type RecoveredCredentials struct {
 
 // Session is the authenticated member and pairing state for a client device.
 type Session struct {
-	PairID string
-	Role   string
-	Status string
+	PairID   string
+	Role     string
+	Status   string
+	DeviceID string
 }
 
 // Service stores the single couple relationship for one private instance.
 type Service struct {
-	db  *sql.DB
+	db  *gorm.DB
 	mu  sync.Mutex
 	now func() time.Time
 }
@@ -84,23 +89,25 @@ func OpenService(databasePath string) (*Service, error) {
 		db.Close()
 		return nil, fmt.Errorf("configure pairing database: %w", err)
 	}
-	if _, err := db.Exec(`
-		CREATE TABLE IF NOT EXISTS pairing_state (
-			id INTEGER PRIMARY KEY CHECK (id = 1),
-			server_url TEXT NOT NULL,
-			invite_code_hash BLOB NOT NULL,
-			invite_expires_at INTEGER NOT NULL,
-			inviter_token_hash BLOB NOT NULL,
-			inviter_recovery_hash BLOB NOT NULL,
-			pair_id TEXT,
-			invitee_token_hash BLOB,
-			invitee_recovery_hash BLOB,
-			paired INTEGER NOT NULL DEFAULT 0
-		)`); err != nil {
+	// Reuse modernc's pure-Go connection rather than the dialector's CGO default.
+	orm, err := gorm.Open(sqlite.New(sqlite.Config{DriverName: "sqlite", Conn: db}), &gorm.Config{
+		// SQL tracing could expose private messages, names or credential digests.
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	if err != nil {
+		db.Close()
+		return nil, fmt.Errorf("open pairing ORM: %w", err)
+	}
+	if err := migrateSchema(orm); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("create pairing schema: %w", err)
 	}
-	return &Service{db: db, now: time.Now}, nil
+	service := &Service{db: orm, now: time.Now}
+	if err := service.migrateDevices(); err != nil {
+		db.Close()
+		return nil, err
+	}
+	return service, nil
 }
 
 // NewService creates an in-memory pairing service for isolated tests.
@@ -114,11 +121,15 @@ func NewService() *Service {
 
 // Close releases the SQLite database connection.
 func (service *Service) Close() error {
-	return service.db.Close()
+	db, err := service.db.DB()
+	if err != nil {
+		return err
+	}
+	return db.Close()
 }
 
 // CreateInvite creates one expiring invitation for the instance.
-func (service *Service) CreateInvite(serverURL string) (Invite, error) {
+func (service *Service) CreateInvite(serverURL string, deviceNames ...string) (Invite, error) {
 	baseURL, err := normalizeServerURL(serverURL)
 	if err != nil {
 		return Invite{}, err
@@ -144,37 +155,39 @@ func (service *Service) CreateInvite(serverURL string) (Invite, error) {
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
-	var paired bool
-	var existingExpiry int64
-	err = service.db.QueryRow(`SELECT paired, invite_expires_at FROM pairing_state WHERE id = 1`).Scan(&paired, &existingExpiry)
-	switch {
-	case err == nil && paired:
-		return Invite{}, ErrAlreadyPaired
-	case err == nil && service.now().Unix() < existingExpiry:
-		return Invite{}, ErrInvitePending
-	case err != nil && !errors.Is(err, sql.ErrNoRows):
-		return Invite{}, fmt.Errorf("read pairing state: %w", err)
-	}
-
-	_, err = service.db.Exec(`
-		INSERT INTO pairing_state (
-			id, server_url, invite_code_hash, invite_expires_at,
-			inviter_token_hash, inviter_recovery_hash, pair_id,
-			invitee_token_hash, invitee_recovery_hash, paired
-		) VALUES (1, ?, ?, ?, ?, ?, NULL, NULL, NULL, 0)
-		ON CONFLICT(id) DO UPDATE SET
-			server_url = excluded.server_url,
-			invite_code_hash = excluded.invite_code_hash,
-			invite_expires_at = excluded.invite_expires_at,
-			inviter_token_hash = excluded.inviter_token_hash,
-			inviter_recovery_hash = excluded.inviter_recovery_hash,
-			pair_id = NULL,
-			invitee_token_hash = NULL,
-			invitee_recovery_hash = NULL,
-			paired = 0`,
-		baseURL, codeHash[:], expiresAt.Unix(), inviterTokenHash[:], inviterRecoveryHash[:])
+	err = service.db.Transaction(func(tx *gorm.DB) error {
+		var existing pairingRecord
+		err := tx.Take(&existing, "id = ?", 1).Error
+		switch {
+		case err == nil && existing.Paired:
+			return ErrAlreadyPaired
+		case err == nil && service.now().Unix() < existing.InviteExpiresAt:
+			return ErrInvitePending
+		case err != nil && !errors.Is(err, gorm.ErrRecordNotFound):
+			return fmt.Errorf("read pairing state: %w", err)
+		}
+		record := pairingRecord{ID: 1, ServerURL: baseURL, InviteCodeHash: codeHash[:],
+			InviteExpiresAt: expiresAt.Unix(), InviterTokenHash: inviterTokenHash[:],
+			InviterRecoveryHash: inviterRecoveryHash[:]}
+		// Explicit columns include zero/NULL values when replacing an expired invite.
+		if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "id"}},
+			DoUpdates: clause.AssignmentColumns([]string{"server_url", "invite_code_hash", "invite_expires_at",
+				"inviter_token_hash", "inviter_recovery_hash", "pair_id", "invitee_token_hash", "invitee_recovery_hash", "paired"}),
+		}).Create(&record).Error; err != nil {
+			return fmt.Errorf("save pairing invitation: %w", err)
+		}
+		// An expired, unpaired invitation starts a new identity and device set.
+		if err := tx.Where("1 = 1").Delete(&deviceCodeRecord{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("1 = 1").Delete(&deviceRecord{}).Error; err != nil {
+			return err
+		}
+		_, err = service.insertDevice(tx, "inviter", inviterToken, deviceName(deviceNames))
+		return err
+	})
 	if err != nil {
-		return Invite{}, fmt.Errorf("save pairing invitation: %w", err)
+		return Invite{}, err
 	}
 
 	return Invite{
@@ -186,24 +199,22 @@ func (service *Service) CreateInvite(serverURL string) (Invite, error) {
 }
 
 // RedeemInvite atomically consumes an invite and creates the instance pair.
-func (service *Service) RedeemInvite(code string) (PairingStatus, error) {
+func (service *Service) RedeemInvite(code string, deviceNames ...string) (PairingStatus, error) {
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
-	var paired bool
-	var expiresAt int64
-	var storedCodeHash []byte
-	err := service.db.QueryRow(`SELECT paired, invite_expires_at, invite_code_hash FROM pairing_state WHERE id = 1`).Scan(&paired, &expiresAt, &storedCodeHash)
-	if errors.Is(err, sql.ErrNoRows) || paired {
+	var state pairingRecord
+	err := service.db.Take(&state, "id = ?", 1).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) || state.Paired {
 		return PairingStatus{}, ErrInvalidInvite
 	}
 	if err != nil {
 		return PairingStatus{}, fmt.Errorf("read pairing invitation: %w", err)
 	}
-	if service.now().Unix() >= expiresAt {
+	if service.now().Unix() >= state.InviteExpiresAt {
 		return PairingStatus{}, ErrExpiredInvite
 	}
-	if !sameHash(storedCodeHash, tokenHash(strings.TrimSpace(code))) {
+	if !sameHash(state.InviteCodeHash, tokenHash(strings.TrimSpace(code))) {
 		return PairingStatus{}, ErrInvalidInvite
 	}
 
@@ -221,20 +232,22 @@ func (service *Service) RedeemInvite(code string) (PairingStatus, error) {
 	}
 	inviteeTokenHash := tokenHash(inviteeToken)
 	inviteeRecoveryHash := tokenHash(inviteeRecovery)
-	result, err := service.db.Exec(`
-		UPDATE pairing_state
-		SET pair_id = ?, invitee_token_hash = ?, invitee_recovery_hash = ?, paired = 1
-		WHERE id = 1 AND paired = 0 AND invite_code_hash = ? AND invite_expires_at > ?`,
-		pairID, inviteeTokenHash[:], inviteeRecoveryHash[:], storedCodeHash, service.now().Unix())
+	err = service.db.Transaction(func(tx *gorm.DB) error {
+		result := tx.Model(&pairingRecord{}).
+			Where("id = ? AND paired = ? AND invite_code_hash = ? AND invite_expires_at > ?", 1, false, state.InviteCodeHash, service.now().Unix()).
+			Updates(map[string]any{"pair_id": pairID, "invitee_token_hash": inviteeTokenHash[:],
+				"invitee_recovery_hash": inviteeRecoveryHash[:], "paired": true})
+		if result.Error != nil {
+			return fmt.Errorf("complete pairing: %w", result.Error)
+		}
+		if result.RowsAffected != 1 {
+			return ErrInvalidInvite
+		}
+		_, err := service.insertDevice(tx, "invitee", inviteeToken, deviceName(deviceNames))
+		return err
+	})
 	if err != nil {
-		return PairingStatus{}, fmt.Errorf("complete pairing: %w", err)
-	}
-	changed, err := result.RowsAffected()
-	if err != nil {
-		return PairingStatus{}, fmt.Errorf("check pairing update: %w", err)
-	}
-	if changed != 1 {
-		return PairingStatus{}, ErrInvalidInvite
+		return PairingStatus{}, err
 	}
 
 	return PairingStatus{
@@ -247,86 +260,71 @@ func (service *Service) RedeemInvite(code string) (PairingStatus, error) {
 
 // Status returns pairing state after validating the inviter's bearer token.
 func (service *Service) Status(inviterToken string) (PairingStatus, error) {
-	service.mu.Lock()
-	defer service.mu.Unlock()
-
-	var paired bool
-	var pairID sql.NullString
-	var storedTokenHash []byte
-	err := service.db.QueryRow(`SELECT paired, pair_id, inviter_token_hash FROM pairing_state WHERE id = 1`).Scan(&paired, &pairID, &storedTokenHash)
-	if errors.Is(err, sql.ErrNoRows) {
+	session, err := service.Authenticate(inviterToken)
+	if errors.Is(err, ErrInvalidSessionToken) || (err == nil && session.Role != "inviter") {
 		return PairingStatus{}, ErrInvalidInviterToken
 	}
 	if err != nil {
-		return PairingStatus{}, fmt.Errorf("read pairing status: %w", err)
+		return PairingStatus{}, err
 	}
-	if !sameHash(storedTokenHash, tokenHash(strings.TrimSpace(inviterToken))) {
-		return PairingStatus{}, ErrInvalidInviterToken
-	}
-	if !paired {
-		return PairingStatus{Status: "pending"}, nil
-	}
-	return PairingStatus{PairID: pairID.String, Status: "paired"}, nil
+	return PairingStatus{PairID: session.PairID, Status: session.Status}, nil
 }
 
 // Authenticate validates either member's access token and returns its session.
 func (service *Service) Authenticate(accessToken string) (Session, error) {
 	service.mu.Lock()
 	defer service.mu.Unlock()
+	return service.authenticateDevice(accessToken)
+}
 
-	var paired bool
-	var pairID sql.NullString
-	var inviterHash, inviteeHash []byte
-	err := service.db.QueryRow(`
-		SELECT paired, pair_id, inviter_token_hash, invitee_token_hash
-		FROM pairing_state WHERE id = 1`).Scan(&paired, &pairID, &inviterHash, &inviteeHash)
-	if errors.Is(err, sql.ErrNoRows) {
+// authenticateDevice reads a device session while the caller holds the mutex.
+func (service *Service) authenticateDevice(accessToken string) (Session, error) {
+	var record struct {
+		Paired   bool
+		PairID   string
+		DeviceID string
+		Role     string
+	}
+	hash := tokenHash(strings.TrimSpace(accessToken))
+	err := service.db.Table("device_sessions AS d").
+		Select("p.paired, p.pair_id, d.id AS device_id, d.role").
+		Joins("JOIN pairing_state AS p ON p.id = 1").Where("d.token_hash = ?", hash[:]).Take(&record).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return Session{}, ErrInvalidSessionToken
 	}
 	if err != nil {
 		return Session{}, fmt.Errorf("read pairing session: %w", err)
 	}
 
-	providedHash := tokenHash(strings.TrimSpace(accessToken))
-	if sameHash(inviterHash, providedHash) {
-		status := "pending"
-		if paired {
-			status = "paired"
-		}
-		return Session{PairID: pairID.String, Role: "inviter", Status: status}, nil
+	session := Session{PairID: record.PairID, DeviceID: record.DeviceID, Role: record.Role, Status: "pending"}
+	if record.Paired {
+		session.Status = "paired"
 	}
-	if paired && sameHash(inviteeHash, providedHash) {
-		return Session{PairID: pairID.String, Role: "invitee", Status: "paired"}, nil
-	}
-	return Session{}, ErrInvalidSessionToken
+	return session, nil
 }
 
 // Recover rotates one member's credentials using their single-use recovery code.
-func (service *Service) Recover(recoveryCode string) (RecoveredCredentials, error) {
+func (service *Service) Recover(recoveryCode string, deviceNames ...string) (RecoveredCredentials, error) {
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
-	var pairID sql.NullString
-	var paired bool
-	var inviterHash, inviteeHash []byte
-	err := service.db.QueryRow(`
-		SELECT pair_id, paired, inviter_recovery_hash, invitee_recovery_hash
-		FROM pairing_state WHERE id = 1`).Scan(&pairID, &paired, &inviterHash, &inviteeHash)
-	if errors.Is(err, sql.ErrNoRows) {
+	var state pairingRecord
+	err := service.db.Take(&state, "id = ?", 1).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return RecoveredCredentials{}, ErrNotPaired
 	}
 	if err != nil {
 		return RecoveredCredentials{}, fmt.Errorf("read recovery state: %w", err)
 	}
-	if !paired {
+	if !state.Paired || state.PairID == nil {
 		return RecoveredCredentials{}, ErrNotPaired
 	}
 
 	providedHash := tokenHash(strings.TrimSpace(recoveryCode))
 	role := ""
-	if sameHash(inviterHash, providedHash) {
+	if sameHash(state.InviterRecoveryHash, providedHash) {
 		role = "inviter"
-	} else if sameHash(inviteeHash, providedHash) {
+	} else if sameHash(state.InviteeRecoveryHash, providedHash) {
 		role = "invitee"
 	} else {
 		return RecoveredCredentials{}, ErrInvalidRecoveryCode
@@ -344,14 +342,34 @@ func (service *Service) Recover(recoveryCode string) (RecoveredCredentials, erro
 	if role == "invitee" {
 		tokenColumn, recoveryColumn = "invitee_token_hash", "invitee_recovery_hash"
 	}
-	query := `UPDATE pairing_state SET ` + tokenColumn + ` = ?, ` + recoveryColumn + ` = ? WHERE id = 1 AND paired = 1`
 	accessTokenHash := tokenHash(accessToken)
 	newRecoveryHash := tokenHash(newRecoveryCode)
-	if _, err := service.db.Exec(query, accessTokenHash[:], newRecoveryHash[:]); err != nil {
-		return RecoveredCredentials{}, fmt.Errorf("rotate recovered credentials: %w", err)
+	err = service.db.Transaction(func(tx *gorm.DB) error {
+		// Column names are selected internally, never taken from client input.
+		result := tx.Model(&pairingRecord{}).Where("id = ? AND paired = ?", 1, true).
+			Where(recoveryColumn+" = ?", providedHash[:]).
+			Updates(map[string]any{tokenColumn: accessTokenHash[:], recoveryColumn: newRecoveryHash[:]})
+		if result.Error != nil {
+			return fmt.Errorf("rotate recovered credentials: %w", result.Error)
+		}
+		if result.RowsAffected != 1 {
+			return ErrInvalidRecoveryCode
+		}
+		// Recovery remains an emergency reset. Normal device login is additive.
+		if err := tx.Where("role = ?", role).Delete(&deviceRecord{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("role = ?", role).Delete(&deviceCodeRecord{}).Error; err != nil {
+			return err
+		}
+		_, err := service.insertDevice(tx, role, accessToken, deviceName(deviceNames))
+		return err
+	})
+	if err != nil {
+		return RecoveredCredentials{}, err
 	}
 	return RecoveredCredentials{
-		PairID:       pairID.String,
+		PairID:       *state.PairID,
 		Role:         role,
 		AccessToken:  accessToken,
 		RecoveryCode: newRecoveryCode,

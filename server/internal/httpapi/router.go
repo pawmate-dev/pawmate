@@ -37,6 +37,15 @@ func NewRouter(cfg config.Config, logger *slog.Logger, pairingService *pairing.S
 	api.GET("/pairing/invites/status", pairingStatusHandler(pairingService))
 	api.POST("/pairing/recover", recoverPairingHandler(pairingService))
 	api.GET("/pairing/session", pairingSessionHandler(pairingService))
+	api.GET("/pairing/devices", devicesHandler(pairingService))
+	api.DELETE("/pairing/devices/:id", revokeDeviceHandler(pairingService))
+	api.POST("/pairing/devices/login-codes", deviceLoginCodeHandler(pairingService))
+	api.POST("/pairing/devices/login-codes/redeem", redeemDeviceLoginCodeHandler(pairingService))
+	chat := api.Group("/chat")
+	chat.Use(func(c *gin.Context) { c.Header("Cache-Control", "no-store"); c.Next() })
+	chat.GET("/messages", chatMessagesHandler(pairingService))
+	chat.POST("/messages", sendChatMessageHandler(pairingService))
+	chat.POST("/read", readChatMessagesHandler(pairingService))
 
 	return router
 }

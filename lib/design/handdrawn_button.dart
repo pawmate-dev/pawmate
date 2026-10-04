@@ -33,38 +33,50 @@ class HanddrawnButton extends StatelessWidget {
             children: [
               Icon(icon, size: 20),
               const SizedBox(width: 8),
-              Text(label),
+              Flexible(child: Text(label, textAlign: TextAlign.center)),
             ],
           );
 
     return SizedBox(
       width: double.infinity,
-      height: 52,
-      child: primary
-          ? FilledButton(
-              onPressed: onPressed,
-              style: FilledButton.styleFrom(
-                backgroundColor: PawmateColors.ink,
-                foregroundColor: PawmateColors.paper,
-                disabledBackgroundColor: PawmateColors.softBrown.withAlpha(100),
-                disabledForegroundColor: PawmateColors.paper,
-                elevation: 0,
-                shape: shape,
-              ),
-              child: child,
-            )
-          : OutlinedButton(
-              onPressed: onPressed,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: PawmateColors.ink,
-                side: const BorderSide(
-                  color: PawmateColors.softBrown,
-                  width: 2,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 52),
+        child: primary
+            ? FilledButton(
+                onPressed: onPressed,
+                style: FilledButton.styleFrom(
+                  backgroundColor: PawmateColors.ink,
+                  foregroundColor: PawmateColors.paper,
+                  disabledBackgroundColor: PawmateColors.softBrown.withAlpha(
+                    100,
+                  ),
+                  disabledForegroundColor: PawmateColors.paper,
+                  elevation: 0,
+                  shape: shape,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                 ),
-                shape: shape,
+                child: child,
+              )
+            : OutlinedButton(
+                onPressed: onPressed,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: PawmateColors.ink,
+                  side: const BorderSide(
+                    color: PawmateColors.softBrown,
+                    width: 2,
+                  ),
+                  shape: shape,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                ),
+                child: child,
               ),
-              child: child,
-            ),
+      ),
     );
   }
 }
