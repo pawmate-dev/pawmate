@@ -146,10 +146,11 @@ For the Android emulator, configure the Flutter client with
 `http://10.0.2.2:8080`; `10.0.2.2` maps to the development machine's loopback
 interface from inside the emulator.
 
-Release builds require HTTPS instance URLs. Android permits cleartext HTTP only
-in debug builds; use it for local development or trusted test networks. HTTP
-does not provide transport encryption. Both participants must be able to reach
-the HTTPS instance URL used in release invitations.
+The Android client accepts HTTP and HTTPS instance URLs in debug and release
+builds. HTTP does not provide transport encryption, so use it only on trusted
+private networks or through a private tunnel. Prefer HTTPS for internet-facing
+instances. Both participants must be able to reach the instance URL used in
+invitations.
 
 ## Configuration
 
