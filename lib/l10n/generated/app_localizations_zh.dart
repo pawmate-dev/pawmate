@@ -335,6 +335,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get chat => '聊天';
 
   @override
+  String get onlineGames => '联机小游戏';
+
+  @override
+  String get life => '生活';
+
+  @override
+  String get lifeSpace => '我们的生活';
+
+  @override
+  String get viewLife => '查看生活';
+
+  @override
+  String get saveRecoveryCodeLife => '离开前请在生活中保存恢复码';
+
+  @override
   String get play => '游戏';
 
   @override
@@ -449,7 +464,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get requestFailed => '服务器暂时无法完成请求，请重试';
 
   @override
-  String get invalidServerAddress => '请输入有效的 HTTPS 服务器地址。HTTP 仅在调试版本中可用。';
+  String get invalidServerAddress => '请输入有效的 HTTP 或 HTTPS 服务器地址';
 
   @override
   String get invitationLinkHint => 'pawmate://pair?server=…&code=…';

@@ -412,12 +412,9 @@ class PairingApi {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
-  /// Validates URLs, requiring HTTPS in release builds.
+  /// Validates and normalizes HTTP or HTTPS instance URLs in every build mode.
   static Uri _parseServerURL(String rawServerURL) {
     final uri = Uri.tryParse(rawServerURL.trim());
-    if (kReleaseMode && uri?.scheme == 'http') {
-      throw const PairingApiException('https_required');
-    }
     if (uri == null ||
         uri.host.isEmpty ||
         (uri.scheme != 'http' && uri.scheme != 'https') ||

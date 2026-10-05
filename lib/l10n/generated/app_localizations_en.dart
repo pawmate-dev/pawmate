@@ -350,6 +350,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chat => 'Chat';
 
   @override
+  String get onlineGames => 'Games together';
+
+  @override
+  String get life => 'Life';
+
+  @override
+  String get lifeSpace => 'Our everyday life';
+
+  @override
+  String get viewLife => 'View Life';
+
+  @override
+  String get saveRecoveryCodeLife =>
+      'Save your recovery code in Life before leaving.';
+
+  @override
   String get play => 'Play';
 
   @override
@@ -476,7 +492,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get invalidServerAddress =>
-      'Enter a valid HTTPS server address. HTTP is available in debug builds only.';
+      'Enter a valid HTTP or HTTPS server address.';
 
   @override
   String get invitationLinkHint => 'pawmate://pair?server=…&code=…';

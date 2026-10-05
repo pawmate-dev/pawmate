@@ -266,7 +266,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('couple space opens on Chat and alerts without reading on Home', (
+  testWidgets('couple space opens on Chat and alerts without reading on Life', (
     tester,
   ) async {
     var newMessage = false;
@@ -313,7 +313,11 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Our conversation'), findsOneWidget);
-    await tester.tap(find.text('Home'));
+    await tester.enterText(find.byType(TextField), 'An unfinished message');
+    await tester.tap(find.byTooltip('Games together'));
+    await tester.pumpAndSettle();
+    expect(find.text('Games together'), findsOneWidget);
+    await tester.tap(find.byTooltip('Life'));
     await tester.pumpAndSettle();
     newMessage = true;
     await tester.pump(const Duration(seconds: 2));
@@ -321,9 +325,10 @@ void main() {
     expect(read, 0);
     expect(find.text('1'), findsOneWidget);
     expect(find.text('1 unread messages from your partner'), findsOneWidget);
-    await tester.tap(find.text('Chat'));
+    await tester.tap(find.byTooltip('Chat, 1 unread messages'));
     await tester.pumpAndSettle();
     expect(read, 2);
+    expect(find.text('An unfinished message'), findsOneWidget);
     expect(find.text('1'), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();

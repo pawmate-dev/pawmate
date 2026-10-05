@@ -102,7 +102,6 @@ class _InviteeAcceptPageState extends State<InviteeAcceptPage> {
         setState(
           () => _errorMessage = switch (error.message) {
             'invalid_profile' => l10n.profileRejected,
-            'https_required' => l10n.invalidServerAddress,
             _ => l10n.requestFailed,
           },
         );

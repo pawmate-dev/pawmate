@@ -109,7 +109,6 @@ class _PairingRecoveryPageState extends State<PairingRecoveryPage> {
     return switch (error.message) {
       'invalid_recovery_code' => l10n.invalidRecoveryCode,
       'not_paired' => l10n.notPaired,
-      'https_required' => l10n.invalidServerAddress,
       _ => l10n.requestFailed,
     };
   }

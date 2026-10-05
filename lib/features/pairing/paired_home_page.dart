@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../design/components/handdrawn_card.dart';
+import '../../design/components/crayon_navigation_bar.dart';
+import '../../design/icons/navigation/navigation_doodle_icon.dart';
 import '../../design/components/couple_avatar.dart';
 import '../../design/layouts/handdrawn_scaffold.dart';
 import '../../design/theme/colors.dart';
@@ -47,7 +49,7 @@ class _PairedHomePageState extends State<PairedHomePage>
   int _lastUnread = 0;
   bool _loaded = false;
   bool _redirecting = false;
-  bool _homeNotice = true;
+  bool _lifeNotice = true;
 
   @override
   void initState() {
@@ -127,7 +129,7 @@ class _PairedHomePageState extends State<PairedHomePage>
     _chat.setChatVisible(index == 0);
     setState(() {
       _tab = index;
-      if (index == 2) _homeNotice = false;
+      if (index == 2) _lifeNotice = false;
     });
   }
 
@@ -144,46 +146,31 @@ class _PairedHomePageState extends State<PairedHomePage>
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return HanddrawnScaffold(
-      title: [l10n.ourConversation, l10n.playCorner, l10n.ourLittleHome][_tab],
-      bottomNavigationBar: NavigationBar(
+      title: [l10n.ourConversation, l10n.onlineGames, l10n.lifeSpace][_tab],
+      bottomNavigationBar: CrayonNavigationBar(
         selectedIndex: _tab,
         onDestinationSelected: _selectTab,
-        destinations: [
-          NavigationDestination(
-            icon: Badge(
-              isLabelVisible: _chat.unreadCount > 0,
-              label: Text(
-                _chat.unreadCount > 99 ? '99+' : '${_chat.unreadCount}',
-              ),
-              child: const Icon(Icons.chat_bubble_outline),
-            ),
-            label: l10n.chat,
-            tooltip: l10n.chatUnread(_chat.unreadCount),
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.sports_esports_outlined),
-            label: l10n.play,
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            label: l10n.home,
-          ),
-        ],
+        chatLabel: _chat.unreadCount > 0
+            ? l10n.chatUnread(_chat.unreadCount)
+            : l10n.chat,
+        gamesLabel: l10n.onlineGames,
+        lifeLabel: l10n.life,
+        unreadCount: _chat.unreadCount,
       ),
       body: Column(
         children: [
-          if (_homeNotice &&
+          if (_lifeNotice &&
               (widget.recoveryCodeToSave != null || widget.storageWarning))
             MaterialBanner(
               content: Text(
                 widget.storageWarning
                     ? l10n.loginNotSaved
-                    : l10n.saveRecoveryCodeHome,
+                    : l10n.saveRecoveryCodeLife,
               ),
               actions: [
                 TextButton(
                   onPressed: () => _selectTab(2),
-                  child: Text(l10n.viewHome),
+                  child: Text(l10n.viewLife),
                 ),
               ],
             ),
@@ -198,7 +185,7 @@ class _PairedHomePageState extends State<PairedHomePage>
                     child: HanddrawnCard(child: Text(l10n.gamesComing)),
                   ),
                 ),
-                _HomeDetails(
+                _LifeDetails(
                   credentials: widget.credentials,
                   session: _profileSession,
                   recoveryCodeToSave: widget.recoveryCodeToSave,
@@ -213,9 +200,9 @@ class _PairedHomePageState extends State<PairedHomePage>
   }
 }
 
-/// Keeps pairing details, device management and recovery notes in the Home tab.
-class _HomeDetails extends StatelessWidget {
-  const _HomeDetails({
+/// Keeps pairing details, devices and recovery notes in the shared Life tab.
+class _LifeDetails extends StatelessWidget {
+  const _LifeDetails({
     required this.credentials,
     required this.session,
     this.recoveryCodeToSave,
@@ -264,14 +251,13 @@ class _HomeDetails extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                 ],
-                const Icon(
-                  Icons.home_rounded,
-                  size: 36,
-                  color: PawmateColors.rose,
+                const NavigationDoodleIcon(
+                  symbol: NavigationDoodle.life,
+                  selected: true,
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  l10n.youAreHome,
+                  l10n.lifeSpace,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     color: PawmateColors.ink,
                     fontWeight: FontWeight.w700,

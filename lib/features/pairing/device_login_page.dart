@@ -105,9 +105,6 @@ class _DeviceLoginPageState extends State<DeviceLoginPage> {
             'invalid_device_code' => AppLocalizations.of(
               context,
             )!.invalidDeviceCode,
-            'https_required' => AppLocalizations.of(
-              context,
-            )!.invalidServerAddress,
             _ => AppLocalizations.of(context)!.requestFailed,
           },
         );

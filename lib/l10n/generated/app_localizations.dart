@@ -728,6 +728,36 @@ abstract class AppLocalizations {
   /// **'Chat'**
   String get chat;
 
+  /// No description provided for @onlineGames.
+  ///
+  /// In en, this message translates to:
+  /// **'Games together'**
+  String get onlineGames;
+
+  /// No description provided for @life.
+  ///
+  /// In en, this message translates to:
+  /// **'Life'**
+  String get life;
+
+  /// No description provided for @lifeSpace.
+  ///
+  /// In en, this message translates to:
+  /// **'Our everyday life'**
+  String get lifeSpace;
+
+  /// No description provided for @viewLife.
+  ///
+  /// In en, this message translates to:
+  /// **'View Life'**
+  String get viewLife;
+
+  /// No description provided for @saveRecoveryCodeLife.
+  ///
+  /// In en, this message translates to:
+  /// **'Save your recovery code in Life before leaving.'**
+  String get saveRecoveryCodeLife;
+
   /// No description provided for @play.
   ///
   /// In en, this message translates to:
@@ -935,7 +965,7 @@ abstract class AppLocalizations {
   /// No description provided for @invalidServerAddress.
   ///
   /// In en, this message translates to:
-  /// **'Enter a valid HTTPS server address. HTTP is available in debug builds only.'**
+  /// **'Enter a valid HTTP or HTTPS server address.'**
   String get invalidServerAddress;
 
   /// No description provided for @invitationLinkHint.
