@@ -19,9 +19,10 @@ class ChatScope {
 
 /// A message that must retain its idempotency key across crashes and restarts.
 class StoredOutgoing {
-  const StoredOutgoing(this.clientID, this.text);
+  const StoredOutgoing(this.clientID, this.text, {this.createdAt});
   final String clientID;
   final String text;
+  final DateTime? createdAt;
 }
 
 /// Only server synchronization is allowed to advance these member-owned cursors.

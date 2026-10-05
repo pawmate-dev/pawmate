@@ -25,3 +25,19 @@ Do not create a subdirectory for every widget. Add purpose-based icon families
 as needed; see [the crayon icon guidelines](icons/README.md) for texture, seeds,
 semantics and preview generation. Moving files must not alter visual geometry,
 tokens or interaction behavior.
+
+## Chat bubbles
+
+`ChatMessageBubble` uses a 96% width cap and 5px vertical content padding.
+The center-facing corners use the shared large radius; the sender-facing lower
+corner uses the smaller joined radius until the group ends, when it becomes a
+tail. Features determine groups: consecutive same-sender messages no more than
+five minutes apart, including locally pending messages.
+
+The last word (or final Unicode grapheme of a long token) stays together with
+the `h:mm am/pm` timestamp and optional delivery mark. Native selection is kept
+for confirmed messages. Role labels and textual delivery states are not visible;
+localized status remains available to assistive technology. Failed bubbles are
+retryable by tap or keyboard with a minimum 44px hit area, while the painted
+surface remains compact. Status marks live in `icons/chat/` and share the
+deterministic crayon renderer rather than Material icons or animated spinners.

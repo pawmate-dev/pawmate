@@ -44,7 +44,7 @@ Future<ChatStore> openChatStore(ChatScope scope) async {
 class _ChatDatabase extends GeneratedDatabase {
   _ChatDatabase(super.executor);
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
   @override
   Iterable<TableInfo<Table, Object?>> get allTables => const [];
   @override
@@ -57,11 +57,16 @@ class _ChatDatabase extends GeneratedDatabase {
       text TEXT NOT NULL, created_at TEXT NOT NULL, confirmed INTEGER NOT NULL,
       UNIQUE(sender, client_id))''');
       await customStatement(
-        'CREATE TABLE outbox (client_id TEXT PRIMARY KEY, text TEXT NOT NULL)',
+        'CREATE TABLE outbox (client_id TEXT PRIMARY KEY, text TEXT NOT NULL, created_at TEXT)',
       );
       await customStatement(
         'CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)',
       );
+    },
+    onUpgrade: (_, from, to) async {
+      if (from < 2) {
+        await customStatement('ALTER TABLE outbox ADD COLUMN created_at TEXT');
+      }
     },
   );
 }
@@ -204,13 +209,16 @@ class SqliteChatStore extends ChatStore {
             (row) => StoredOutgoing(
               row.read<String>('client_id'),
               row.read<String>('text'),
+              createdAt: DateTime.tryParse(
+                row.readNullable<String>('created_at') ?? '',
+              ),
             ),
           )
           .toList();
   @override
   Future<void> putOutgoing(StoredOutgoing row) => _db.customStatement(
-    'INSERT INTO outbox(client_id,text) VALUES (?,?) ON CONFLICT(client_id) DO NOTHING',
-    [row.clientID, row.text],
+    'INSERT INTO outbox(client_id,text,created_at) VALUES (?,?,?) ON CONFLICT(client_id) DO NOTHING',
+    [row.clientID, row.text, row.createdAt?.toUtc().toIso8601String()],
   );
   @override
   Future<void> removeOutgoing(String clientID) =>

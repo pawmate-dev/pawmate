@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:pawmate/design/theme/pawmate_theme.dart';
+import 'package:pawmate/design/components/chat_message_bubble.dart';
 import 'package:pawmate/features/chat/chat_api.dart';
 import 'package:pawmate/features/chat/chat_controller.dart';
 import 'package:pawmate/features/chat/chat_page.dart';
@@ -61,6 +62,61 @@ http.Response snapshot(
 );
 
 void main() {
+  testWidgets(
+    'only the newest bubble in each five-minute sender run has a tail',
+    (tester) async {
+      final rows = [
+        for (var id = 1; id <= 5; id++)
+          {
+            ...message(
+              id,
+              id <= 2 ? 'inviter' : 'invitee',
+              clientID: 'client-$id',
+              text: 'message-$id',
+            ),
+            'created_at': DateTime.utc(
+              2026,
+              10,
+              4,
+              10,
+              id < 4 ? id : id + 5,
+            ).toIso8601String(),
+          },
+      ];
+      final chat = ChatController(
+        ChatApi(
+          credentials,
+          MockClient((_) async => snapshot(rows, latest: 5)),
+        ),
+      );
+      await chat.synchronize();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildPawmateTheme(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(body: ChatPage(controller: chat, active: false)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final bubbles = {
+        for (final bubble in tester.widgetList<ChatMessageBubble>(
+          find.byType(ChatMessageBubble),
+        ))
+          bubble.text: bubble.isGroupEnd,
+      };
+      expect(bubbles, {
+        'message-1': false,
+        'message-2': true,
+        'message-3': true,
+        'message-4': false,
+        'message-5': true,
+      });
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      chat.dispose();
+    },
+  );
   test(
     'a lost send response retries with the same id and no duplicate bubble',
     () async {
@@ -231,7 +287,7 @@ void main() {
       await tester.pumpWidget(page(false));
       await tester.pumpAndSettle();
       expect(read, 0);
-      expect(find.textContaining('Read'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp('Read')), findsOneWidget);
       await tester.pumpWidget(page(true));
       await tester.pumpAndSettle();
       expect(read, 1);

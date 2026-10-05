@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:sqlite3/sqlite3.dart';
 import 'package:pawmate/features/chat/chat_api.dart';
 import 'package:pawmate/features/chat/chat_controller.dart';
 import 'package:pawmate/features/chat/storage/chat_store.dart';
@@ -54,6 +55,26 @@ http.Response snapshot(
 );
 
 void main() {
+  test('version-one outbox migrates without losing pending messages', () async {
+    final database = sqlite3.openInMemory();
+    database.execute(
+      'CREATE TABLE outbox (client_id TEXT PRIMARY KEY, text TEXT NOT NULL)',
+    );
+    database.execute(
+      "INSERT INTO outbox VALUES ('old-id', 'Keep this pending message')",
+    );
+    database.execute('PRAGMA user_version = 1');
+    final store = SqliteChatStore(scope(), NativeDatabase.opened(database));
+    final old = (await store.outbox()).single;
+    expect(old.clientID, 'old-id');
+    expect(old.createdAt, isNull);
+    final time = DateTime.utc(2026, 10, 6, 18, 20);
+    await store.putOutgoing(
+      StoredOutgoing('new-id', 'With a timestamp', createdAt: time),
+    );
+    expect((await store.outbox()).last.createdAt, time);
+    await store.close();
+  });
   for (final useSqlite in [false, true]) {
     final name = useSqlite ? 'SQLite' : 'Memory';
     group(name, () {

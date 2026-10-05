@@ -9,9 +9,11 @@ import 'storage/chat_store.dart';
 
 /// A local outgoing message keeps the same id during ambiguous network retries.
 class OutgoingMessage {
-  OutgoingMessage(this.clientID, this.text);
+  OutgoingMessage(this.clientID, this.text, {DateTime? createdAt})
+    : createdAt = createdAt ?? DateTime.now();
   final String clientID;
   final String text;
+  final DateTime createdAt;
   bool sending = true;
 }
 
@@ -104,7 +106,11 @@ class ChatController extends ChangeNotifier {
       hasOlder = _localOlder || _serverOlder;
       for (final pending in await _store.outbox()) {
         _outbox.add(
-          OutgoingMessage(pending.clientID, pending.text)..sending = false,
+          OutgoingMessage(
+            pending.clientID,
+            pending.text,
+            createdAt: pending.createdAt,
+          )..sending = false,
         );
       }
       final draft = await _store.draft();
@@ -344,7 +350,11 @@ class ChatController extends ChangeNotifier {
     ).join();
     final outgoing = OutgoingMessage(id, text);
     _outbox.add(outgoing);
-    await _persist(() => _store.putOutgoing(StoredOutgoing(id, text)));
+    await _persist(
+      () => _store.putOutgoing(
+        StoredOutgoing(id, text, createdAt: outgoing.createdAt),
+      ),
+    );
     if (!_accessAllowed || unauthorized) {
       outgoing.sending = false;
       _emit();

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../design/components/chat_message_bubble.dart';
 import '../../design/components/handdrawn_card.dart';
+import '../../design/icons/chat/message_status_icon.dart';
 import 'chat_controller.dart';
 import '../../l10n/generated/app_localizations.dart';
 
@@ -138,6 +139,20 @@ class _ChatPageState extends State<ChatPage> {
       final chat = widget.controller;
       final messages = chat.messages.reversed.toList();
       final pending = chat.outbox.reversed.toList();
+      // A run ends when the newer item changes sender or is over five minutes away.
+      bool groupEnd(int index, String sender, DateTime time) {
+        if (index == 0) return true;
+        final newerIndex = index - 1;
+        if (newerIndex < pending.length) {
+          return sender != chat.api.credentials.role ||
+              pending[newerIndex].createdAt.difference(time).abs() >
+                  const Duration(minutes: 5);
+        }
+        final newer = messages[newerIndex - pending.length];
+        return newer.sender != sender ||
+            newer.createdAt.difference(time).abs() > const Duration(minutes: 5);
+      }
+
       if (messages.isNotEmpty && widget.active) {
         _scheduleRead();
       }
@@ -168,6 +183,15 @@ class _ChatPageState extends State<ChatPage> {
                             key: ValueKey('pending-${outgoing.clientID}'),
                             text: outgoing.text,
                             own: true,
+                            time: outgoing.createdAt,
+                            isGroupEnd: groupEnd(
+                              index,
+                              chat.api.credentials.role,
+                              outgoing.createdAt,
+                            ),
+                            delivery: outgoing.sending
+                                ? MessageDelivery.sending
+                                : MessageDelivery.failed,
                             status: outgoing.sending
                                 ? l10n.sending
                                 : l10n.notSent,
@@ -201,8 +225,22 @@ class _ChatPageState extends State<ChatPage> {
                           text: message.text,
                           own: own,
                           time: message.createdAt,
+                          isGroupEnd: groupEnd(
+                            index,
+                            message.sender,
+                            message.createdAt,
+                          ),
+                          delivery: own
+                              ? (!message.serverConfirmed
+                                    ? MessageDelivery.sending
+                                    : message.id <= chat.partnerReadID
+                                    ? MessageDelivery.read
+                                    : MessageDelivery.sent)
+                              : null,
                           status: own
-                              ? (message.id <= chat.partnerReadID
+                              ? (!message.serverConfirmed
+                                    ? l10n.sending
+                                    : message.id <= chat.partnerReadID
                                     ? l10n.read
                                     : l10n.unread)
                               : '',

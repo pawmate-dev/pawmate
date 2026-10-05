@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:pawmate/design/theme/pawmate_theme.dart';
+import 'package:pawmate/design/components/chat_message_bubble.dart';
 import 'package:pawmate/features/chat/chat_api.dart';
 import 'package:pawmate/features/chat/storage/chat_store.dart';
 import 'package:pawmate/features/pairing/couple_details_page.dart';
@@ -117,7 +118,14 @@ void main() {
             application(locales, store, previewKey: previewKey),
           );
           await tester.pumpAndSettle();
-          expect(find.text('Available without a network'), findsOneWidget);
+          expect(
+            find.byWidgetPredicate(
+              (widget) =>
+                  widget is ChatMessageBubble &&
+                  widget.text == 'Available without a network',
+            ),
+            findsOneWidget,
+          );
           expect(find.byType(CircularProgressIndicator), findsNothing);
           expect(find.text('Checking your saved access…'), findsNothing);
           response.completeError(const FormatException('unreachable'));
@@ -198,7 +206,14 @@ void main() {
     await http.runWithClient(() async {
       await tester.pumpWidget(application(locales, store));
       await tester.pumpAndSettle();
-      expect(find.text('Keep this local history'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is ChatMessageBubble &&
+              widget.text == 'Keep this local history',
+        ),
+        findsOneWidget,
+      );
       expect(
         find.text(
           "This device's access has expired. Restore access in Settings",
