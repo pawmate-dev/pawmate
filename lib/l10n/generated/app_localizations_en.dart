@@ -356,6 +356,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get life => 'Life';
 
   @override
+  String get coupleDetails => 'Couple details';
+
+  @override
+  String get openCoupleDetails => 'Open couple details';
+
+  @override
+  String get saveRecoveryCodeDetails =>
+      'Open couple details to save your recovery code before leaving.';
+
+  @override
   String get lifeSpace => 'Our everyday life';
 
   @override

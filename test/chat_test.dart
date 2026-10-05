@@ -11,7 +11,11 @@ import 'package:pawmate/features/chat/chat_controller.dart';
 import 'package:pawmate/features/chat/chat_page.dart';
 import 'package:pawmate/features/pairing/pairing_credentials.dart';
 import 'package:pawmate/features/pairing/paired_home_page.dart';
+import 'package:pawmate/design/components/couple_header_avatars.dart';
 import 'package:pawmate/features/pairing/pairing_api.dart';
+import 'package:pawmate/features/pairing/couple_details_page.dart';
+import 'package:pawmate/features/pairing/widgets/devices_card.dart';
+import 'package:pawmate/features/pairing/widgets/recovery_code_note.dart';
 import 'package:pawmate/l10n/generated/app_localizations.dart';
 
 const credentials = SavedPairingCredentials(
@@ -312,14 +316,20 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Our conversation'), findsOneWidget);
+    expect(tester.widget<AppBar>(find.byType(AppBar)).title, isNull);
+    expect(find.byType(CoupleHeaderAvatars), findsOneWidget);
+    expect(find.byType(DevicesCard), findsNothing);
     await tester.enterText(find.byType(TextField), 'An unfinished message');
     await tester.tap(find.byTooltip('Games together'));
     await tester.pumpAndSettle();
-    expect(find.text('Games together'), findsOneWidget);
+    expect(tester.widget<AppBar>(find.byType(AppBar)).title, isNull);
+    expect(find.byType(CoupleHeaderAvatars), findsOneWidget);
     await tester.tap(find.byTooltip('Life'));
     await tester.pumpAndSettle();
+    expect(tester.widget<AppBar>(find.byType(AppBar)).title, isNull);
+    expect(find.byType(CoupleHeaderAvatars), findsOneWidget);
     newMessage = true;
+    expect(find.byKey(const ValueKey('life-empty-content')), findsOneWidget);
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
     expect(read, 0);
@@ -333,4 +343,113 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
   });
+
+  testWidgets(
+    'avatar entry moves details out of Life and preserves chat reads',
+    (tester) async {
+      var incoming = false;
+      var read = 0;
+      var deviceRequests = 0;
+      http.Response respond(http.Request request) {
+        if (request.url.path.endsWith('/devices')) {
+          deviceRequests++;
+          return http.Response(jsonEncode({'devices': []}), 200);
+        }
+        if (request.url.path.endsWith('/session')) {
+          return http.Response(
+            jsonEncode({
+              'role': 'inviter',
+              'status': 'paired',
+              'pair_id': 'our-home',
+            }),
+            200,
+          );
+        }
+        if (request.method == 'POST') {
+          read =
+              (jsonDecode(request.body) as Map<String, dynamic>)['message_id']
+                  as int;
+          return http.Response(jsonEncode({'read_id': read}), 200);
+        }
+        return snapshot(
+          [if (incoming) message(1, 'invitee')],
+          latest: incoming ? 1 : 0,
+          unread: incoming && read == 0 ? 1 : 0,
+          read: read,
+        );
+      }
+
+      await http.runWithClient(() async {
+        final api = ChatApi(
+          credentials,
+          MockClient((request) async => respond(request)),
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: buildPawmateTheme(),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: PairedHomePage(
+              credentials: credentials,
+              session: const PairingSession(
+                role: 'inviter',
+                status: 'paired',
+                pairID: 'our-home',
+              ),
+              recoveryCodeToSave: 'test-recovery-code',
+              chatApi: api,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(deviceRequests, 0);
+        expect(find.byType(DevicesCard), findsNothing);
+        await tester.enterText(find.byType(TextField), 'Keep this draft');
+        await tester.tap(find.byTooltip('Life'));
+        await tester.pumpAndSettle();
+        expect(find.byType(MaterialBanner), findsNothing);
+        expect(find.byType(RecoveryCodeNote), findsNothing);
+        expect(find.text('Private server'), findsNothing);
+
+        await tester.tap(find.byType(CoupleHeaderButton));
+        await tester.pumpAndSettle();
+        expect(find.byType(CoupleDetailsPage), findsOneWidget);
+        expect(find.text('Private server'), findsOneWidget);
+        expect(find.byType(RecoveryCodeNote), findsOneWidget);
+        expect(find.byType(DevicesCard), findsOneWidget);
+        expect(deviceRequests, 1);
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('life-empty-content')),
+          findsOneWidget,
+        );
+        expect(find.byType(CoupleDetailsPage), findsNothing);
+
+        await tester.tap(find.byTooltip('Chat'));
+        await tester.pumpAndSettle();
+        expect(find.text('Keep this draft'), findsOneWidget);
+        await tester.tap(find.byType(CoupleHeaderButton));
+        await tester.pumpAndSettle();
+        incoming = true;
+        await tester.pump(const Duration(seconds: 2));
+        await tester.pumpAndSettle();
+        expect(read, 0);
+        expect(
+          find.text('1 unread messages from your partner'),
+          findsOneWidget,
+        );
+        await tester.tap(find.text('Open chat'));
+        await tester.pumpAndSettle();
+        expect(find.byType(CoupleDetailsPage), findsNothing);
+        expect(read, 1);
+        expect(find.text('Keep this draft'), findsOneWidget);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      }, () => MockClient((request) async => respond(request)));
+    },
+  );
 }

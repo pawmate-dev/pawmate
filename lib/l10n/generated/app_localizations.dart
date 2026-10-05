@@ -740,6 +740,24 @@ abstract class AppLocalizations {
   /// **'Life'**
   String get life;
 
+  /// No description provided for @coupleDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Couple details'**
+  String get coupleDetails;
+
+  /// No description provided for @openCoupleDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Open couple details'**
+  String get openCoupleDetails;
+
+  /// No description provided for @saveRecoveryCodeDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Open couple details to save your recovery code before leaving.'**
+  String get saveRecoveryCodeDetails;
+
   /// No description provided for @lifeSpace.
   ///
   /// In en, this message translates to:

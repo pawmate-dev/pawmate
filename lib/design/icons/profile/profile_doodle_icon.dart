@@ -3,6 +3,30 @@ import 'package:flutter/material.dart';
 import '../../theme/colors.dart';
 import '../crayon_strokes.dart';
 
+/// A quiet hand-drawn placeholder while a member portrait is unavailable.
+class ProfilePlaceholderPainter extends CustomPainter {
+  const ProfilePlaceholderPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.save();
+    canvas.scale(size.width / 40, size.height / 40);
+    final crayon = CrayonStrokes(canvas, seed: 941);
+    crayon.stroke(
+      Path()
+        ..addOval(const Rect.fromLTWH(14, 7, 12, 13))
+        ..moveTo(8, 35)
+        ..cubicTo(9, 19, 31, 19, 32, 35),
+      PawmateColors.softBrown,
+      width: 2,
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(ProfilePlaceholderPainter oldDelegate) => false;
+}
+
 /// Draws a stable wax-textured avatar circle and its upload plus sign.
 class ProfileDoodlePainter extends CustomPainter {
   const ProfileDoodlePainter({this.hasAvatar = false, this.showPlus = true});

@@ -341,6 +341,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get life => '生活';
 
   @override
+  String get coupleDetails => '双人信息';
+
+  @override
+  String get openCoupleDetails => '查看双人信息';
+
+  @override
+  String get saveRecoveryCodeDetails => '离开前请打开双人信息保存恢复码';
+
+  @override
   String get lifeSpace => '我们的生活';
 
   @override
