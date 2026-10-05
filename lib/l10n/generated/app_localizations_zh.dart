@@ -24,6 +24,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get saveAttachment => '保存附件';
 
   @override
+  String get openImagePreview => '打开图片预览';
+
+  @override
+  String get closeImagePreview => '关闭图片预览';
+
+  @override
+  String get imagePreviewHint => '双指缩放或滚动放大，拖动查看图片';
+
+  @override
   String get attachmentSaved => '附件已保存';
 
   @override

@@ -24,6 +24,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get saveAttachment => 'Save attachment';
 
   @override
+  String get openImagePreview => 'Open image preview';
+
+  @override
+  String get closeImagePreview => 'Close image preview';
+
+  @override
+  String get imagePreviewHint =>
+      'Pinch or scroll to zoom, then drag to move the image';
+
+  @override
   String get attachmentSaved => 'Attachment saved';
 
   @override

@@ -128,6 +128,24 @@ abstract class AppLocalizations {
   /// **'Save attachment'**
   String get saveAttachment;
 
+  /// No description provided for @openImagePreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Open image preview'**
+  String get openImagePreview;
+
+  /// No description provided for @closeImagePreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Close image preview'**
+  String get closeImagePreview;
+
+  /// No description provided for @imagePreviewHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Pinch or scroll to zoom, then drag to move the image'**
+  String get imagePreviewHint;
+
   /// No description provided for @attachmentSaved.
   ///
   /// In en, this message translates to:

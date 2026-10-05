@@ -4,7 +4,7 @@ import '../../theme/colors.dart';
 import '../crayon_strokes.dart';
 
 /// Extensible composer symbols, independent of upload or message state.
-enum ComposerDoodle { add, stickers, send, file, photo, save }
+enum ComposerDoodle { add, stickers, send, file, photo, save, close }
 
 /// Small purpose-seeded crayon silhouettes for the chat action strip.
 class ComposerDoodleIcon extends StatelessWidget {
@@ -43,6 +43,12 @@ class ComposerDoodlePainter extends CustomPainter {
         : PawmateColors.softBrown.withAlpha(120);
     final path = Path();
     switch (symbol) {
+      case ComposerDoodle.close:
+        path
+          ..moveTo(7, 7)
+          ..lineTo(25, 25)
+          ..moveTo(25, 7)
+          ..lineTo(7, 25);
       case ComposerDoodle.save:
         path
           ..moveTo(16, 3)

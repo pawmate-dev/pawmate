@@ -14,6 +14,7 @@ import 'package:pawmate/features/chat/chat_api.dart';
 import 'package:pawmate/features/chat/chat_controller.dart';
 import 'package:pawmate/features/chat/chat_page.dart';
 import 'package:pawmate/features/chat/chat_attachment_view.dart';
+import 'package:pawmate/features/chat/chat_image_preview_page.dart';
 import 'package:pawmate/design/theme/pawmate_theme.dart';
 import 'package:pawmate/l10n/generated/app_localizations.dart';
 import 'package:pawmate/features/chat/storage/chat_store.dart';
@@ -200,6 +201,62 @@ void main() {
         screenshot.dispose();
       });
     }
+    await tester.tap(find.byTooltip('Open image preview'));
+    await tester.pumpAndSettle();
+    // Full-resolution decoding uses a different cache key from the thumbnail.
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pumpAndSettle();
+    expect(find.byType(ChatImagePreviewPage), findsOneWidget);
+    expect(find.byType(InteractiveViewer), findsOneWidget);
+    expect(find.text('Weekend.png'), findsOneWidget);
+    final imageFinder = find.descendant(
+      of: find.byType(ChatImagePreviewPage),
+      matching: find.byType(Image),
+    );
+    final originalWidth = tester.getRect(imageFinder).width;
+    final decoded = find.descendant(
+      of: find.byType(ChatImagePreviewPage),
+      matching: find.byType(RawImage),
+    );
+    expect(tester.widget<RawImage>(decoded).image, isNotNull);
+    final first = await tester.startGesture(const Offset(140, 400), pointer: 1);
+    final second = await tester.startGesture(
+      const Offset(250, 400),
+      pointer: 2,
+    );
+    await tester.pump();
+    await first.moveTo(const Offset(90, 400));
+    await second.moveTo(const Offset(300, 400));
+    await tester.pump();
+    expect(tester.getRect(imageFinder).width, greaterThan(originalWidth));
+    await first.up();
+    await second.up();
+    await tester.pumpAndSettle();
+    if (capture) {
+      final boundary =
+          key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      await tester.runAsync(() async {
+        final screenshot = await boundary.toImage(pixelRatio: 2);
+        final data = await screenshot.toByteData(
+          format: ui.ImageByteFormat.png,
+        );
+        await File(
+          '/tmp/pawmate-image-preview.png',
+        ).writeAsBytes(data!.buffer.asUint8List());
+        screenshot.dispose();
+      });
+    }
+    await tester.tap(find.byTooltip('Close image preview'));
+    await tester.pumpAndSettle();
+    expect(find.byType(ChatImagePreviewPage), findsNothing);
+    await tester.tap(find.byTooltip('Open image preview'));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byType(ChatImagePreviewPage), findsNothing);
+    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
     controller.dispose();
   });
