@@ -84,10 +84,9 @@ class _PawmateAppState extends State<PawmateApp> {
         GlobalCupertinoLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
       ],
-      home: LocaleControllerScope(
-        notifier: _localeController,
-        child: const PairingSessionGate(),
-      ),
+      home: const PairingSessionGate(),
+      builder: (context, child) =>
+          LocaleControllerScope(notifier: _localeController, child: child!),
     );
   }
 }

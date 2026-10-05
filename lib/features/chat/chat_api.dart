@@ -13,6 +13,7 @@ class ChatMessage {
     required this.sender,
     required this.text,
     required this.createdAt,
+    this.serverConfirmed = true,
   });
 
   /// Decodes a persisted message, including messages from this member's other devices.
@@ -29,6 +30,18 @@ class ChatMessage {
   final String sender;
   final String text;
   final DateTime createdAt;
+
+  /// Imported device history remains local-only until corroborated by the server.
+  final bool serverConfirmed;
+
+  /// Serializes message content only, never credentials or trusted sync metadata.
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'client_id': clientID,
+    'sender': sender,
+    'text': text,
+    'created_at': createdAt.toUtc().toIso8601String(),
+  };
 }
 
 /// History and shared member-level receipts returned in a single snapshot.

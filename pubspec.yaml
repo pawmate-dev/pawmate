@@ -40,7 +40,12 @@ dependencies:
   app_links: ^7.2.1
   flutter_secure_storage: ^11.2.0
   file_selector: ^1.1.0
+  drift: ^2.35.0
+  sqlite3: ^3.5.2
+  path_provider: ^2.1.6
+  crypto: ^3.0.7
 
+  intl: any
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -64,6 +69,12 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+# Bundle the encrypted SQLite implementation on every native client platform.
+hooks:
+  user_defines:
+    sqlite3:
+      source: sqlite3mc
 
   # To add assets to your application, add an assets section, like this:
   # assets:

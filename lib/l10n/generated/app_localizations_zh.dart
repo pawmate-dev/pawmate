@@ -208,7 +208,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get restoringAccess => '正在恢复访问…';
 
   @override
-  String get restoreAccess => '恢复访问';
+  String get restoreAccess => '使用恢复码恢复访问';
 
   @override
   String get invalidRecoveryCode => '恢复码已失效';
@@ -339,6 +339,42 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get life => '生活';
+
+  @override
+  String get settings => '设置';
+
+  @override
+  String get checkingConnection => '正在检查服务器连接';
+
+  @override
+  String get connectionOnline => '已连接私人服务器';
+
+  @override
+  String get connectionOffline => '无法连接服务器，仍可查看本地聊天记录';
+
+  @override
+  String get connectionUnauthorized => '此设备的登录凭证已失效，请前往设置恢复访问';
+
+  @override
+  String get localChatStorageError => '本地聊天存储不可用，新消息可能无法在重启后保留';
+
+  @override
+  String get serverConnection => '服务器连接';
+
+  @override
+  String get revalidateConnection => '重新检查连接和凭证';
+
+  @override
+  String get accessAndRecovery => '登录与恢复';
+
+  @override
+  String get recoverySettingsHelp => '恢复访问会退出你的其他设备并更换恢复码，添加设备请使用设备登录码';
+
+  @override
+  String get languageSaveError => '语言已切换，但无法保存到下次启动';
+
+  @override
+  String get languageUnavailable => '当前预览无法调整语言偏好';
 
   @override
   String get coupleDetails => '双人信息';

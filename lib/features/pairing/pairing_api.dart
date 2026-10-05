@@ -88,6 +88,15 @@ class PairingSession {
     this.partner,
   });
 
+  /// Caches identity and pairing status only; never includes authorization secrets.
+  Map<String, dynamic> toJson() => {
+    'role': role,
+    'status': status,
+    'pair_id': pairID,
+    'profile': profile?.toJson(),
+    'partner': partner?.toJson(),
+  };
+
   factory PairingSession.fromJson(Map<String, dynamic> json) {
     return PairingSession(
       pairID: json['pair_id'] as String?,

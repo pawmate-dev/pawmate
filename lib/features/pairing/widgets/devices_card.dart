@@ -5,7 +5,6 @@ import '../../../design/components/handdrawn_button.dart';
 import '../../../design/components/handdrawn_card.dart';
 import '../pairing_api.dart';
 import '../pairing_credentials.dart';
-import '../pairing_session_gate.dart';
 import 'pairing_error_note.dart';
 import '../../../l10n/generated/app_localizations.dart';
 
@@ -49,9 +48,8 @@ class _DevicesCardState extends State<DevicesCard> {
     } on PairingApiException catch (error) {
       if (!mounted) return;
       if (error.statusCode == 401) {
-        Navigator.of(context).pushAndRemoveUntil<void>(
-          MaterialPageRoute<void>(builder: (_) => const PairingSessionGate()),
-          (_) => false,
+        setState(
+          () => _error = AppLocalizations.of(context)!.connectionUnauthorized,
         );
       } else {
         setState(() => _error = AppLocalizations.of(context)!.requestFailed);

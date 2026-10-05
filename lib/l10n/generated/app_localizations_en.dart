@@ -220,7 +220,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get restoringAccess => 'Restoring access…';
 
   @override
-  String get restoreAccess => 'Restore access';
+  String get restoreAccess => 'Restore access with a recovery code';
 
   @override
   String get invalidRecoveryCode => 'That recovery code is not valid anymore.';
@@ -354,6 +354,48 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get life => 'Life';
+
+  @override
+  String get settings => 'Settings';
+
+  @override
+  String get checkingConnection => 'Checking the server connection';
+
+  @override
+  String get connectionOnline => 'Connected to your private server';
+
+  @override
+  String get connectionOffline =>
+      'Cannot connect to your server. Local conversations remain available';
+
+  @override
+  String get connectionUnauthorized =>
+      'This device\'s access has expired. Restore access in Settings';
+
+  @override
+  String get localChatStorageError =>
+      'Local chat storage is unavailable. New messages may not survive a restart';
+
+  @override
+  String get serverConnection => 'Server connection';
+
+  @override
+  String get revalidateConnection => 'Check connection and access again';
+
+  @override
+  String get accessAndRecovery => 'Access and recovery';
+
+  @override
+  String get recoverySettingsHelp =>
+      'Recovery signs out your other devices and replaces your recovery code. To add a device, use a device login code instead';
+
+  @override
+  String get languageSaveError =>
+      'The language changed, but could not be saved for the next launch';
+
+  @override
+  String get languageUnavailable =>
+      'Language preferences are unavailable in this preview';
 
   @override
   String get coupleDetails => 'Couple details';

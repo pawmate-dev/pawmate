@@ -16,6 +16,7 @@ import 'package:pawmate/features/pairing/pairing_api.dart';
 import 'package:pawmate/features/pairing/couple_details_page.dart';
 import 'package:pawmate/features/pairing/widgets/devices_card.dart';
 import 'package:pawmate/features/pairing/widgets/recovery_code_note.dart';
+import 'package:pawmate/features/chat/storage/chat_store.dart';
 import 'package:pawmate/l10n/generated/app_localizations.dart';
 
 const credentials = SavedPairingCredentials(
@@ -305,6 +306,16 @@ void main() {
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: PairedHomePage(
+          verifySession: false,
+          chatStore: Future.value(
+            MemoryChatStore(
+              ChatScope(
+                serverURL: credentials.serverURL,
+                pairID: credentials.pairID,
+                role: credentials.role,
+              ),
+            ),
+          ),
           credentials: credentials,
           session: const PairingSession(
             role: 'inviter',
@@ -393,6 +404,15 @@ void main() {
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
             home: PairedHomePage(
+              chatStore: Future.value(
+                MemoryChatStore(
+                  ChatScope(
+                    serverURL: credentials.serverURL,
+                    pairID: credentials.pairID,
+                    role: credentials.role,
+                  ),
+                ),
+              ),
               credentials: credentials,
               session: const PairingSession(
                 role: 'inviter',

@@ -491,7 +491,7 @@ abstract class AppLocalizations {
   /// No description provided for @restoreAccess.
   ///
   /// In en, this message translates to:
-  /// **'Restore access'**
+  /// **'Restore access with a recovery code'**
   String get restoreAccess;
 
   /// No description provided for @invalidRecoveryCode.
@@ -739,6 +739,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Life'**
   String get life;
+
+  /// No description provided for @settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settings;
+
+  /// No description provided for @checkingConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking the server connection'**
+  String get checkingConnection;
+
+  /// No description provided for @connectionOnline.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected to your private server'**
+  String get connectionOnline;
+
+  /// No description provided for @connectionOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'Cannot connect to your server. Local conversations remain available'**
+  String get connectionOffline;
+
+  /// No description provided for @connectionUnauthorized.
+  ///
+  /// In en, this message translates to:
+  /// **'This device\'s access has expired. Restore access in Settings'**
+  String get connectionUnauthorized;
+
+  /// No description provided for @localChatStorageError.
+  ///
+  /// In en, this message translates to:
+  /// **'Local chat storage is unavailable. New messages may not survive a restart'**
+  String get localChatStorageError;
+
+  /// No description provided for @serverConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Server connection'**
+  String get serverConnection;
+
+  /// No description provided for @revalidateConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Check connection and access again'**
+  String get revalidateConnection;
+
+  /// No description provided for @accessAndRecovery.
+  ///
+  /// In en, this message translates to:
+  /// **'Access and recovery'**
+  String get accessAndRecovery;
+
+  /// No description provided for @recoverySettingsHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Recovery signs out your other devices and replaces your recovery code. To add a device, use a device login code instead'**
+  String get recoverySettingsHelp;
+
+  /// No description provided for @languageSaveError.
+  ///
+  /// In en, this message translates to:
+  /// **'The language changed, but could not be saved for the next launch'**
+  String get languageSaveError;
+
+  /// No description provided for @languageUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Language preferences are unavailable in this preview'**
+  String get languageUnavailable;
 
   /// No description provided for @coupleDetails.
   ///

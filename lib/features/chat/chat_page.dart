@@ -24,11 +24,31 @@ class _ChatPageState extends State<ChatPage> {
   final _viewportKey = GlobalKey();
   final Map<int, GlobalKey> _incomingKeys = {};
   bool _atLatest = true;
+  bool _draftRestored = false;
+  Timer? _draftTimer;
 
   @override
   void initState() {
     super.initState();
     _scroll.addListener(_onScroll);
+    widget.controller.addListener(_restoreDraft);
+    _restoreDraft();
+  }
+
+  /// Applies the cached draft once; later synchronization never overwrites typing.
+  void _restoreDraft() {
+    if (_draftRestored || !widget.controller.initialized) return;
+    _draftRestored = true;
+    if (_draft.text.isEmpty) _draft.text = widget.controller.savedDraft;
+  }
+
+  /// Coalesces keystrokes; disposing flushes the last edit before closing storage.
+  void _saveDraft(String text) {
+    widget.controller.updateDraft(text);
+    _draftTimer?.cancel();
+    _draftTimer = Timer(const Duration(milliseconds: 300), () {
+      unawaited(widget.controller.saveDraft(text));
+    });
   }
 
   /// Reads incoming messages inside the rendered viewport, never on fetch alone.
@@ -42,7 +62,12 @@ class _ChatPageState extends State<ChatPage> {
         if (viewport is! RenderBox || !viewport.hasSize) return;
         final bounds = viewport.localToGlobal(Offset.zero) & viewport.size;
         var visibleID = 0;
+        final confirmed = widget.controller.messages
+            .where((message) => message.serverConfirmed)
+            .map((message) => message.id)
+            .toSet();
         for (final entry in _incomingKeys.entries) {
+          if (!confirmed.contains(entry.key)) continue;
           final bubble = entry.value.currentContext?.findRenderObject();
           if (bubble is RenderBox && bubble.hasSize) {
             final messageBounds =
@@ -89,12 +114,17 @@ class _ChatPageState extends State<ChatPage> {
     final text = _draft.text.trim();
     if (text.isEmpty || text.runes.length > 4000) return;
     _draft.clear();
+    _draftTimer?.cancel();
+    unawaited(widget.controller.saveDraft(''));
     unawaited(widget.controller.send(text));
     _showLatest();
   }
 
   @override
   void dispose() {
+    _draftTimer?.cancel();
+    widget.controller.removeListener(_restoreDraft);
+    unawaited(widget.controller.saveDraft(_draft.text));
     _draft.dispose();
     _scroll.dispose();
     super.dispose();
@@ -113,22 +143,10 @@ class _ChatPageState extends State<ChatPage> {
       }
       return Column(
         children: [
-          if (chat.error != null)
-            MaterialBanner(
-              content: Text(l10n.chatError),
-              actions: [
-                TextButton(
-                  onPressed: () => chat.synchronize(),
-                  child: Text(l10n.retry),
-                ),
-              ],
-            ),
           Expanded(
             child: SizedBox.expand(
               key: _viewportKey,
-              child: chat.loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : messages.isEmpty && pending.isEmpty
+              child: messages.isEmpty && pending.isEmpty
                   ? Center(
                       child: Padding(
                         padding: EdgeInsets.all(24),
@@ -210,6 +228,7 @@ class _ChatPageState extends State<ChatPage> {
                   children: [
                     Expanded(
                       child: TextField(
+                        onChanged: _saveDraft,
                         controller: _draft,
                         minLines: 1,
                         maxLines: 4,

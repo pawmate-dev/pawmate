@@ -13,7 +13,9 @@ import 'pairing_credentials.dart';
 import '../chat/chat_api.dart';
 import '../chat/chat_controller.dart';
 import '../chat/chat_page.dart';
-import 'pairing_session_gate.dart';
+import '../chat/storage/chat_store.dart';
+import '../chat/storage/chat_store_factory.dart';
+import 'connection_status.dart';
 import '../../l10n/generated/app_localizations.dart';
 
 /// Opens the couple space on chat, retaining drafts and scroll state between tabs.
@@ -25,6 +27,9 @@ class PairedHomePage extends StatefulWidget {
     this.recoveryCodeToSave,
     this.storageWarning = false,
     this.chatApi,
+    this.chatStore,
+    this.pairingApi,
+    this.verifySession = true,
   });
 
   final SavedPairingCredentials credentials;
@@ -32,6 +37,9 @@ class PairedHomePage extends StatefulWidget {
   final String? recoveryCodeToSave;
   final bool storageWarning;
   final ChatApi? chatApi;
+  final Future<ChatStore>? chatStore;
+  final PairingApi? pairingApi;
+  final bool verifySession;
 
   @override
   State<PairedHomePage> createState() => _PairedHomePageState();
@@ -40,12 +48,14 @@ class PairedHomePage extends StatefulWidget {
 class _PairedHomePageState extends State<PairedHomePage>
     with WidgetsBindingObserver {
   late final ChatController _chat;
-  final _profileApi = PairingApi();
+  late final PairingApi _profileApi;
+  final _connection = ValueNotifier(ConnectionStatus.checking);
+  Timer? _connectionTimer;
+  bool _checking = false;
   late final ValueNotifier<PairingSession> _profileSession;
   int _tab = 0;
   int _lastUnread = 0;
   bool _loaded = false;
-  bool _redirecting = false;
   bool _detailsNotice = true;
   bool _viewingDetails = false;
 
@@ -53,49 +63,119 @@ class _PairedHomePageState extends State<PairedHomePage>
   void initState() {
     super.initState();
     _profileSession = ValueNotifier(widget.session);
-    if (widget.session.profile == null || widget.session.partner == null) {
-      unawaited(_loadProfiles());
-    }
+    _profileApi = widget.pairingApi ?? PairingApi();
     WidgetsBinding.instance.addObserver(this);
-    _chat = ChatController(widget.chatApi ?? ChatApi(widget.credentials))
-      ..addListener(_changed);
+    final scope = ChatScope(
+      serverURL: widget.credentials.serverURL,
+      pairID: widget.credentials.pairID,
+      role: widget.credentials.role,
+    );
+    _chat = ChatController(
+      widget.chatApi ?? ChatApi(widget.credentials),
+      store: widget.chatStore ?? openChatStore(scope),
+      requireVerification: widget.verifySession,
+    )..addListener(_changed);
     _chat.setForeground(
       WidgetsBinding.instance.lifecycleState == null ||
           WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed,
     );
     _chat.start();
+    unawaited(_restoreProfiles());
+    if (widget.verifySession) {
+      unawaited(_checkServer());
+      _connectionTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+        if (_chat.foreground && _connection.value == ConnectionStatus.offline) {
+          unawaited(_checkServer());
+        }
+      });
+    } else {
+      _connection.value = ConnectionStatus.online;
+    }
   }
 
-  /// Reads server-owned identities after invitation, recovery or device login.
-  Future<void> _loadProfiles() async {
+  /// Restores identity asynchronously without overwriting a newer server response.
+  Future<void> _restoreProfiles() async {
+    await _chat.initialize();
+    if (!mounted || _connection.value == ConnectionStatus.online) return;
+    final cached = _chat.savedProfile;
+    if (cached != null) {
+      try {
+        final session = PairingSession.fromJson(cached);
+        if (session.pairID == widget.credentials.pairID &&
+            session.role == widget.credentials.role) {
+          _profileSession.value = session;
+          setState(() {});
+        }
+      } on Object {
+        /* Malformed cached profiles must not block the space. */
+      }
+    }
+  }
+
+  /// Checks both connectivity and access in the background, never blocking cached UI.
+  Future<void> _checkServer() async {
+    if (_checking || !mounted) return;
+    _checking = true;
+    _connection.value = ConnectionStatus.checking;
     try {
       final session = await _profileApi.validateSession(
         widget.credentials.serverURL,
         widget.credentials.accessToken,
       );
-      if (mounted) setState(() => _profileSession.value = session);
+      if (!mounted) return;
+      if (session.status != 'paired' ||
+          session.pairID != widget.credentials.pairID ||
+          session.role != widget.credentials.role) {
+        _connection.value = ConnectionStatus.unauthorized;
+        _chat.rejectAccess();
+        return;
+      }
+      _profileSession.value = session;
+      _connection.value = ConnectionStatus.online;
+      _chat.allowNetwork(true);
+      unawaited(_chat.saveProfile(session.toJson()));
+    } on PairingApiException catch (error) {
+      if (!mounted) return;
+      _connection.value = error.statusCode == 401
+          ? ConnectionStatus.unauthorized
+          : ConnectionStatus.offline;
+      if (error.statusCode == 401) {
+        _chat.rejectAccess();
+      } else {
+        _chat.allowNetwork(false);
+      }
     } on Object {
-      // A profile lookup must not interrupt an otherwise usable chat session.
+      if (mounted) {
+        _connection.value = ConnectionStatus.offline;
+        _chat.allowNetwork(false);
+      }
+    } finally {
+      _checking = false;
+      if (mounted) setState(() {});
     }
   }
 
   /// Pauses polling and read receipts when the application leaves the foreground.
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) =>
-      _chat.setForeground(state == AppLifecycleState.resumed);
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _chat.setForeground(state == AppLifecycleState.resumed);
+    if (state == AppLifecycleState.resumed && widget.verifySession) {
+      unawaited(_checkServer());
+    }
+  }
 
-  /// Shows content-free unread reminders and redirects revoked device sessions.
+  /// Keeps offline/revoked sessions local; recovery is an explicit settings action.
   void _changed() {
     if (!mounted) return;
-    if (_chat.unauthorized && !_redirecting) {
-      _redirecting = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        Navigator.of(context).pushAndRemoveUntil<void>(
-          MaterialPageRoute<void>(builder: (_) => const PairingSessionGate()),
-          (_) => false,
-        );
-      });
+    if (_chat.unauthorized) {
+      _connection.value = ConnectionStatus.unauthorized;
+    } else if (_chat.error != null && !_checking) {
+      _connection.value = ConnectionStatus.offline;
+    } else if (_chat.error == null &&
+        _connection.value == ConnectionStatus.offline &&
+        !_checking) {
+      // Only successful server sync, not cache hydration, can restore online status.
+      if (_chat.caughtUp) _connection.value = ConnectionStatus.online;
     }
     if (_loaded &&
         _chat.foreground &&
@@ -132,7 +212,7 @@ class _PairedHomePageState extends State<PairedHomePage>
 
   /// Covers chat without marking messages read, then restores the selected tab.
   Future<void> _openDetails() async {
-    if (_viewingDetails || _redirecting) return;
+    if (_viewingDetails) return;
     _chat.setChatVisible(false);
     setState(() {
       _viewingDetails = true;
@@ -148,6 +228,8 @@ class _PairedHomePageState extends State<PairedHomePage>
               session: session,
               recoveryCodeToSave: widget.recoveryCodeToSave,
               storageWarning: widget.storageWarning,
+              connection: _connection,
+              onRetry: _checkServer,
             ),
           ),
         ),
@@ -169,6 +251,8 @@ class _PairedHomePageState extends State<PairedHomePage>
   @override
   void dispose() {
     _profileSession.dispose();
+    _connectionTimer?.cancel();
+    _connection.dispose();
     _profileApi.close();
     WidgetsBinding.instance.removeObserver(this);
     _chat.removeListener(_changed);
@@ -212,6 +296,32 @@ class _PairedHomePageState extends State<PairedHomePage>
       ),
       body: Column(
         children: [
+          ValueListenableBuilder<ConnectionStatus>(
+            valueListenable: _connection,
+            builder: (_, status, _) =>
+                status == ConnectionStatus.offline ||
+                    status == ConnectionStatus.unauthorized
+                ? MaterialBanner(
+                    content: Text(connectionLabel(l10n, status)),
+                    actions: [
+                      TextButton(
+                        onPressed: _openDetails,
+                        child: Text(l10n.openCoupleDetails),
+                      ),
+                    ],
+                  )
+                : const SizedBox.shrink(),
+          ),
+          if (_chat.storageError)
+            MaterialBanner(
+              content: Text(l10n.localChatStorageError),
+              actions: [
+                TextButton(
+                  onPressed: _openDetails,
+                  child: Text(l10n.openCoupleDetails),
+                ),
+              ],
+            ),
           if (_tab != 2 &&
               _detailsNotice &&
               (widget.recoveryCodeToSave != null || widget.storageWarning))

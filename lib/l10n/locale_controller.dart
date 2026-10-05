@@ -10,7 +10,12 @@ class LocaleController extends ChangeNotifier {
   Locale get locale => _locale;
 
   Future<void> restore() async {
-    final value = await _storage.read(key: _key);
+    String? value;
+    try {
+      value = await _storage.read(key: _key);
+    } on Object {
+      return;
+    }
     if (value == 'en' || value == 'zh') {
       _locale = Locale(value!);
       notifyListeners();
@@ -36,4 +41,9 @@ class LocaleControllerScope extends InheritedNotifier<LocaleController> {
   static LocaleController of(BuildContext context) => context
       .dependOnInheritedWidgetOfExactType<LocaleControllerScope>()!
       .notifier!;
+
+  /// Allows isolated previews/tests to render without an app-owned controller.
+  static LocaleController? maybeOf(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<LocaleControllerScope>()
+      ?.notifier;
 }

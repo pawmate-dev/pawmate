@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../design/components/couple_header_avatars.dart';
 import '../../design/components/handdrawn_card.dart';
@@ -10,6 +11,8 @@ import 'pairing_credentials.dart';
 import 'widgets/devices_card.dart';
 import 'widgets/pairing_error_note.dart';
 import 'widgets/recovery_code_note.dart';
+import 'connection_status.dart';
+import 'settings_page.dart';
 
 /// Account and pairing information reached from the couple's header portraits.
 class CoupleDetailsPage extends StatelessWidget {
@@ -19,12 +22,16 @@ class CoupleDetailsPage extends StatelessWidget {
     super.key,
     this.recoveryCodeToSave,
     this.storageWarning = false,
+    this.connection,
+    this.onRetry,
   });
 
   final SavedPairingCredentials credentials;
   final PairingSession session;
   final String? recoveryCodeToSave;
   final bool storageWarning;
+  final ValueListenable<ConnectionStatus>? connection;
+  final Future<void> Function()? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -112,6 +119,26 @@ class CoupleDetailsPage extends StatelessWidget {
             ],
             const SizedBox(height: 18),
             DevicesCard(credentials: credentials),
+            const SizedBox(height: 18),
+            HanddrawnCard(
+              child: TextButton.icon(
+                onPressed: () => Navigator.of(context).push<void>(
+                  MaterialPageRoute(
+                    builder: (_) => SettingsPage(
+                      serverURL: credentials.serverURL,
+                      connection:
+                          connection ??
+                          const AlwaysStoppedAnimation(
+                            ConnectionStatus.offline,
+                          ),
+                      onRetry: onRetry ?? () async {},
+                    ),
+                  ),
+                ),
+                icon: const Icon(Icons.settings_outlined),
+                label: Text(l10n.settings),
+              ),
+            ),
           ],
         ),
       ),
