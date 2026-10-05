@@ -3,6 +3,12 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_call:
+    inputs:
+      flutter-version:
+        description: Flutter SDK version used for CI and release checks
+        type: string
+        default: '3.44.8'
 
 permissions:
   contents: read
@@ -18,6 +24,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: ${{ inputs.flutter-version || '3.44.8' }}
           channel: stable
           cache: true
 

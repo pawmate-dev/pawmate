@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"pawmate/server/internal/config"
+	"pawmate/server/internal/pairing"
 )
 
 func TestHealthz(t *testing.T) {
@@ -36,10 +37,14 @@ func TestInstance(t *testing.T) {
 }
 
 func testRouter() http.Handler {
+	pairingService, err := pairing.OpenService(":memory:")
+	if err != nil {
+		panic(err)
+	}
 	return NewRouter(config.Config{
 		Environment:  "test",
 		InstanceID:   "test-instance",
 		InstanceName: "Test Home",
 		Port:         "8080",
-	}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	}, slog.New(slog.NewTextHandler(io.Discard, nil)), pairingService)
 }

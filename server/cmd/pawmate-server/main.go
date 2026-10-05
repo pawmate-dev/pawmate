@@ -12,15 +12,22 @@ import (
 
 	"pawmate/server/internal/config"
 	"pawmate/server/internal/httpapi"
+	"pawmate/server/internal/pairing"
 )
 
 func main() {
 	cfg := config.Load()
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{}))
+	pairingService, err := pairing.OpenService(cfg.DatabasePath)
+	if err != nil {
+		logger.Error("could not open pairing database", "error", err)
+		os.Exit(1)
+	}
+	defer pairingService.Close()
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           httpapi.NewRouter(cfg, logger),
+		Handler:           httpapi.NewRouter(cfg, logger, pairingService),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      15 * time.Second,

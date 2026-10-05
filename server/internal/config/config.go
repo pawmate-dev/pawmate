@@ -9,6 +9,7 @@ type Config struct {
 	InstanceName string
 	Port         string
 	PublicURL    string
+	DatabasePath string
 }
 
 // Load reads configuration and applies development-friendly defaults.
@@ -19,6 +20,7 @@ func Load() Config {
 		InstanceName: envOrDefault("PAWMATE_INSTANCE_NAME", "Our Little Home"),
 		Port:         envOrDefault("PAWMATE_PORT", "8080"),
 		PublicURL:    os.Getenv("PAWMATE_PUBLIC_URL"),
+		DatabasePath: envOrDefault("PAWMATE_DATABASE_PATH", "pawmate.db"),
 	}
 }
 
