@@ -118,6 +118,11 @@ func migrateSchema(db *gorm.DB) error {
 				UNIQUE(pair_id, sender, client_id)
 			)`,
 			`CREATE INDEX IF NOT EXISTS chat_messages_pair_id ON chat_messages(pair_id, id)`,
+			`CREATE TABLE IF NOT EXISTS chat_attachments (
+				message_id INTEGER PRIMARY KEY REFERENCES chat_messages(id) ON DELETE CASCADE,
+				kind TEXT NOT NULL CHECK(kind IN ('file','image')), name TEXT NOT NULL,
+				content_type TEXT NOT NULL, size INTEGER NOT NULL, sha256 TEXT NOT NULL, data BLOB NOT NULL
+			)`,
 			`CREATE TABLE IF NOT EXISTS chat_reads (
 				pair_id TEXT NOT NULL, role TEXT NOT NULL,
 				message_id INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(pair_id, role)

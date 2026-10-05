@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 
 import '../pairing/pairing_api.dart';
@@ -9,11 +10,12 @@ import 'storage/chat_store.dart';
 
 /// A local outgoing message keeps the same id during ambiguous network retries.
 class OutgoingMessage {
-  OutgoingMessage(this.clientID, this.text, {DateTime? createdAt})
+  OutgoingMessage(this.clientID, this.text, {DateTime? createdAt, this.upload})
     : createdAt = createdAt ?? DateTime.now();
   final String clientID;
   final String text;
   final DateTime createdAt;
+  final AttachmentUpload? upload;
   bool sending = true;
 }
 
@@ -54,6 +56,7 @@ class ChatController extends ChangeNotifier {
   Map<String, dynamic>? savedProfile;
   final List<ChatMessage> _messages = [];
   final List<OutgoingMessage> _outbox = [];
+  final Map<String, Future<Uint8List>> _payloadRequests = {};
   Timer? _timer;
   bool _disposed = false;
   bool _syncing = false;
@@ -110,6 +113,7 @@ class ChatController extends ChangeNotifier {
             pending.clientID,
             pending.text,
             createdAt: pending.createdAt,
+            upload: pending.upload,
           )..sending = false,
         );
       }
@@ -378,6 +382,91 @@ class ChatController extends ChangeNotifier {
     await _send(outgoing);
   }
 
+  /// Durably queues private bytes before uploading; cancellation creates no message.
+  Future<void> sendAttachment(AttachmentUpload upload) async {
+    await initialize();
+    if (_disposed || unauthorized) return;
+    _validatePayload(upload.metadata, upload.bytes);
+    final random = Random.secure();
+    final id = List.generate(
+      16,
+      (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
+    ).join();
+    final outgoing = OutgoingMessage(id, upload.metadata.name, upload: upload);
+    _outbox.add(outgoing);
+    await _persist(
+      () => _store.putOutgoing(
+        StoredOutgoing(
+          id,
+          outgoing.text,
+          createdAt: outgoing.createdAt,
+          upload: upload,
+        ),
+      ),
+    );
+    if (!_accessAllowed || unauthorized) {
+      outgoing.sending = false;
+      _emit();
+      return;
+    }
+    _emit();
+    await _send(outgoing);
+  }
+
+  /// Reuses encrypted cached bytes offline; simultaneous previews share one download.
+  Future<Uint8List> attachmentData(ChatAttachment attachment) =>
+      _payloadRequests.putIfAbsent(
+        attachment.digest,
+        () => _loadAttachment(attachment).whenComplete(() {
+          // Removing the map entry must not return this same in-flight future.
+          _payloadRequests.remove(attachment.digest);
+        }),
+      );
+
+  Future<Uint8List> _loadAttachment(ChatAttachment attachment) async {
+    await initialize();
+    final cached = await _store.attachmentBytes(attachment.digest);
+    if (cached != null) {
+      _validatePayload(attachment, cached);
+      return cached;
+    }
+    if (_disposed || !_accessAllowed || unauthorized) {
+      throw StateError('Attachment not cached');
+    }
+    late Uint8List bytes;
+    try {
+      bytes = await api.downloadAttachment(attachment);
+    } on Object catch (error) {
+      _handleError(error);
+      _emit();
+      rethrow;
+    }
+    await _persist(() => _store.saveAttachmentBytes(attachment.digest, bytes));
+    return bytes;
+  }
+
+  /// Cached content remains usable before background credential verification.
+  bool get canTransferAttachments =>
+      !_disposed && _accessAllowed && !unauthorized;
+
+  /// Allows a future authenticated peer transfer to supply content, not authority.
+  Future<void> importAttachmentBytes(
+    ChatAttachment metadata,
+    Uint8List bytes,
+  ) async {
+    _validatePayload(metadata, bytes);
+    await initialize();
+    await _persist(() => _store.saveAttachmentBytes(metadata.digest, bytes));
+  }
+
+  void _validatePayload(ChatAttachment metadata, Uint8List bytes) {
+    ChatAttachment.fromJson(metadata.toJson());
+    if (bytes.length != metadata.size ||
+        sha256.convert(bytes).toString() != metadata.digest) {
+      throw const FormatException('Attachment integrity mismatch');
+    }
+  }
+
   /// Reconciles the response with messages already observed through polling.
   Future<void> _send(OutgoingMessage outgoing) async {
     if (_disposed || !_accessAllowed || unauthorized) {
@@ -385,9 +474,19 @@ class ChatController extends ChangeNotifier {
       return;
     }
     try {
-      final message = await api.send(outgoing.clientID, outgoing.text);
+      final message = outgoing.upload == null
+          ? await api.send(outgoing.clientID, outgoing.text)
+          : await api.sendAttachment(outgoing.clientID, outgoing.upload!);
       if (_disposed) return;
       _merge([message]);
+      if (outgoing.upload != null) {
+        await _persist(
+          () => _store.saveAttachmentBytes(
+            outgoing.upload!.metadata.digest,
+            outgoing.upload!.bytes,
+          ),
+        );
+      }
       await _persist(() => _store.commit([message]));
       _outbox.remove(outgoing);
       unawaited(synchronize());

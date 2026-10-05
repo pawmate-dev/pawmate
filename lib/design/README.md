@@ -41,3 +41,12 @@ localized status remains available to assistive technology. Failed bubbles are
 retryable by tap or keyboard with a minimum 44px hit area, while the painted
 surface remains compact. Status marks live in `icons/chat/` and share the
 deterministic crayon renderer rather than Material icons or animated spinners.
+
+`ChatComposer` presents add / native editor / stickers / send. Its editor has no
+visible label, placeholder or `InputDecorator`; a localized semantic label stays
+available. A fixed crayon border does not animate or change on focus. Shared
+`CrayonIconButton` controls retain native keyboard activation, tooltips, disabled
+semantics and a static focus outline while disabling ink splashes, press overlays
+and state-transition animations. `icons/chat/composer_doodle_icon.dart` owns the
+purpose-seeded composer, file and photo symbols. Feature screens own attachment
+menus, draft persistence and delivery callbacks; the design layer performs no IO.

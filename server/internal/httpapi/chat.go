@@ -12,6 +12,10 @@ import (
 // chatError returns a safe error code without logging message text or credentials.
 func chatError(c *gin.Context, err error) {
 	switch {
+	case errors.Is(err, pairing.ErrInvalidAttachment):
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_attachment"})
+	case errors.Is(err, pairing.ErrAttachmentNotFound):
+		c.JSON(http.StatusNotFound, gin.H{"error": "attachment_not_found"})
 	case errors.Is(err, pairing.ErrInvalidMessage):
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_message"})
 	case errors.Is(err, pairing.ErrInvalidReadCursor):

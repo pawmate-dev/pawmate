@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import '../../pairing/pairing_api.dart';
 import '../chat_api.dart';
@@ -19,10 +20,11 @@ class ChatScope {
 
 /// A message that must retain its idempotency key across crashes and restarts.
 class StoredOutgoing {
-  const StoredOutgoing(this.clientID, this.text, {this.createdAt});
+  const StoredOutgoing(this.clientID, this.text, {this.createdAt, this.upload});
   final String clientID;
   final String text;
   final DateTime? createdAt;
+  final AttachmentUpload? upload;
 }
 
 /// Only server synchronization is allowed to advance these member-owned cursors.
@@ -105,6 +107,8 @@ abstract class ChatStore implements ChatHistoryExchange {
   Future<Map<String, dynamic>?> profile();
   Future<void> saveProfile(Map<String, dynamic> profile);
   Future<void> close();
+  Future<Uint8List?> attachmentBytes(String digest);
+  Future<void> saveAttachmentBytes(String digest, Uint8List bytes);
 
   /// Validates the entire exchange before any writes; imports never trust receipts.
   void validateBatch(ChatHistoryBatch batch) {
@@ -119,6 +123,12 @@ abstract class ChatStore implements ChatHistoryExchange {
     final ids = <int>{};
     final clients = <String>{};
     for (final message in batch.messages) {
+      if (message.attachment != null) {
+        ChatAttachment.fromJson(message.attachment!.toJson());
+        if (message.attachment!.messageID != message.id) {
+          throw const FormatException('Attachment identity mismatch');
+        }
+      }
       if (message.id <= 0 ||
           message.clientID.isEmpty ||
           message.clientID.length > 128 ||
@@ -140,6 +150,7 @@ class MemoryChatStore extends ChatStore {
   final ChatScope scope;
   final rows = <int, ChatMessage>{};
   final pending = <String, StoredOutgoing>{};
+  final payloads = <String, Uint8List>{};
   ChatSyncState state = const ChatSyncState();
   String textDraft = '';
   Map<String, dynamic>? memberProfile;
@@ -199,6 +210,11 @@ class MemoryChatStore extends ChatStore {
   @override
   Future<void> close() async {}
   @override
+  Future<Uint8List?> attachmentBytes(String digest) async => payloads[digest];
+  @override
+  Future<void> saveAttachmentBytes(String digest, Uint8List bytes) async =>
+      payloads[digest] = Uint8List.fromList(bytes);
+  @override
   Future<ChatHistoryBatch> exportHistory({
     int afterID = 0,
     int limit = 250,
@@ -243,6 +259,7 @@ class MemoryChatStore extends ChatStore {
         text: row.text,
         createdAt: row.createdAt,
         serverConfirmed: false,
+        attachment: row.attachment,
       );
       count++;
     }

@@ -44,7 +44,7 @@ Future<ChatStore> openChatStore(ChatScope scope) async {
 class _ChatDatabase extends GeneratedDatabase {
   _ChatDatabase(super.executor);
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
   @override
   Iterable<TableInfo<Table, Object?>> get allTables => const [];
   @override
@@ -54,18 +54,33 @@ class _ChatDatabase extends GeneratedDatabase {
     onCreate: (_) async {
       await customStatement('''CREATE TABLE messages (
       id INTEGER PRIMARY KEY, client_id TEXT NOT NULL, sender TEXT NOT NULL,
-      text TEXT NOT NULL, created_at TEXT NOT NULL, confirmed INTEGER NOT NULL,
+      text TEXT NOT NULL, created_at TEXT NOT NULL, confirmed INTEGER NOT NULL, attachment TEXT,
       UNIQUE(sender, client_id))''');
       await customStatement(
-        'CREATE TABLE outbox (client_id TEXT PRIMARY KEY, text TEXT NOT NULL, created_at TEXT)',
+        'CREATE TABLE outbox (client_id TEXT PRIMARY KEY, text TEXT NOT NULL, created_at TEXT, upload_metadata TEXT, upload_data BLOB)',
       );
       await customStatement(
         'CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)',
+      );
+      await customStatement(
+        'CREATE TABLE attachment_cache (digest TEXT PRIMARY KEY, data BLOB NOT NULL)',
       );
     },
     onUpgrade: (_, from, to) async {
       if (from < 2) {
         await customStatement('ALTER TABLE outbox ADD COLUMN created_at TEXT');
+      }
+      if (from < 3) {
+        await customStatement(
+          'ALTER TABLE messages ADD COLUMN attachment TEXT',
+        );
+        await customStatement(
+          'ALTER TABLE outbox ADD COLUMN upload_metadata TEXT',
+        );
+        await customStatement('ALTER TABLE outbox ADD COLUMN upload_data BLOB');
+        await customStatement(
+          'CREATE TABLE attachment_cache (digest TEXT PRIMARY KEY, data BLOB NOT NULL)',
+        );
       }
     },
   );
@@ -114,6 +129,11 @@ class SqliteChatStore extends ChatStore {
     text: row.read<String>('text'),
     createdAt: DateTime.parse(row.read<String>('created_at')),
     serverConfirmed: row.read<int>('confirmed') == 1,
+    attachment: row.readNullable<String>('attachment') == null
+        ? null
+        : ChatAttachment.fromJson(
+            jsonDecode(row.read<String>('attachment')) as Map<String, dynamic>,
+          ),
   );
 
   @override
@@ -163,9 +183,9 @@ class SqliteChatStore extends ChatStore {
       );
     }
     await _db.customStatement(
-      '''INSERT INTO messages(id,client_id,sender,text,created_at,confirmed)
-      VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET client_id=excluded.client_id,
-      sender=excluded.sender,text=excluded.text,created_at=excluded.created_at,confirmed=excluded.confirmed''',
+      '''INSERT INTO messages(id,client_id,sender,text,created_at,confirmed,attachment)
+      VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET client_id=excluded.client_id,
+      sender=excluded.sender,text=excluded.text,created_at=excluded.created_at,confirmed=excluded.confirmed,attachment=excluded.attachment''',
       [
         row.id,
         row.clientID,
@@ -173,6 +193,7 @@ class SqliteChatStore extends ChatStore {
         row.text,
         row.createdAt.toUtc().toIso8601String(),
         row.serverConfirmed ? 1 : 0,
+        row.attachment == null ? null : jsonEncode(row.attachment!.toJson()),
       ],
     );
     if (row.serverConfirmed && row.sender == scope.role) {
@@ -212,13 +233,28 @@ class SqliteChatStore extends ChatStore {
               createdAt: DateTime.tryParse(
                 row.readNullable<String>('created_at') ?? '',
               ),
+              upload: row.readNullable<String>('upload_metadata') == null
+                  ? null
+                  : AttachmentUpload(
+                      ChatAttachment.fromJson(
+                        jsonDecode(row.read<String>('upload_metadata'))
+                            as Map<String, dynamic>,
+                      ),
+                      row.read<Uint8List>('upload_data'),
+                    ),
             ),
           )
           .toList();
   @override
   Future<void> putOutgoing(StoredOutgoing row) => _db.customStatement(
-    'INSERT INTO outbox(client_id,text,created_at) VALUES (?,?,?) ON CONFLICT(client_id) DO NOTHING',
-    [row.clientID, row.text, row.createdAt?.toUtc().toIso8601String()],
+    'INSERT INTO outbox(client_id,text,created_at,upload_metadata,upload_data) VALUES (?,?,?,?,?) ON CONFLICT(client_id) DO NOTHING',
+    [
+      row.clientID,
+      row.text,
+      row.createdAt?.toUtc().toIso8601String(),
+      row.upload == null ? null : jsonEncode(row.upload!.metadata.toJson()),
+      row.upload?.bytes,
+    ],
   );
   @override
   Future<void> removeOutgoing(String clientID) =>
@@ -238,6 +274,23 @@ class SqliteChatStore extends ChatStore {
       _putMetadata('profile', jsonEncode(profile));
   @override
   Future<void> close() => _db.close();
+  @override
+  Future<Uint8List?> attachmentBytes(String digest) async {
+    final rows = await _query(
+      'SELECT data FROM attachment_cache WHERE digest = ?',
+      [Variable<String>(digest)],
+    );
+    return rows.isEmpty ? null : rows.single.read<Uint8List>('data');
+  }
+
+  @override
+  Future<void> saveAttachmentBytes(
+    String digest,
+    Uint8List bytes,
+  ) => _db.customStatement(
+    'INSERT INTO attachment_cache(digest,data) VALUES (?,?) ON CONFLICT(digest) DO NOTHING',
+    [digest, bytes],
+  );
 
   @override
   Future<ChatHistoryBatch> exportHistory({
@@ -288,6 +341,7 @@ class SqliteChatStore extends ChatStore {
             text: row.text,
             createdAt: row.createdAt,
             serverConfirmed: false,
+            attachment: row.attachment,
           ),
         );
         inserted++;

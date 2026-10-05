@@ -9,6 +9,34 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
+  String get chatAttachments => '更多聊天功能';
+
+  @override
+  String get sendFile => '发送文件';
+
+  @override
+  String get sendPhoto => '发送图片';
+
+  @override
+  String get chatStickers => '表情包';
+
+  @override
+  String get saveAttachment => '保存附件';
+
+  @override
+  String get attachmentSaved => '附件已保存';
+
+  @override
+  String get attachmentUnavailable => '附件暂不可用，请检查连接后重试';
+
+  @override
+  String get attachmentPickError =>
+      '请选择不超过 20 MiB 的非空文件，图片须为有效的 PNG、JPEG 或 GIF，且不超过 2500 万像素';
+
+  @override
+  String get chatStickersPlanned => '双人表情包收藏将在后续开放';
+
+  @override
   String get chooseLanguage => '选择语言';
 
   @override

@@ -9,6 +9,36 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get chatAttachments => 'More chat features';
+
+  @override
+  String get sendFile => 'Send file';
+
+  @override
+  String get sendPhoto => 'Send image';
+
+  @override
+  String get chatStickers => 'Stickers';
+
+  @override
+  String get saveAttachment => 'Save attachment';
+
+  @override
+  String get attachmentSaved => 'Attachment saved';
+
+  @override
+  String get attachmentUnavailable =>
+      'Attachment unavailable. Check your connection and retry';
+
+  @override
+  String get attachmentPickError =>
+      'Choose a non-empty file up to 20 MiB. Pictures must be valid PNG, JPEG or GIF images up to 25 megapixels';
+
+  @override
+  String get chatStickersPlanned =>
+      'Your shared sticker collection is coming later.';
+
+  @override
   String get chooseLanguage => 'Language';
 
   @override

@@ -20,6 +20,7 @@ class ChatMessageBubble extends StatelessWidget {
     this.delivery,
     this.isGroupEnd = true,
     this.onRetry,
+    this.content,
   });
 
   final String text;
@@ -31,6 +32,9 @@ class ChatMessageBubble extends StatelessWidget {
   final MessageDelivery? delivery;
   final bool isGroupEnd;
   final VoidCallback? onRetry;
+
+  /// Optional native media presentation; data loading remains outside design.
+  final Widget? content;
 
   @override
   Widget build(BuildContext context) {
@@ -78,11 +82,18 @@ class ChatMessageBubble extends StatelessWidget {
               top: PawmateSpace.chatBubbleVerticalPadding,
               bottom: PawmateSpace.chatBubbleVerticalPadding,
             ),
-            child: _MessageText(
-              text: text,
-              metadata: metadata,
-              timestamp: timestamp,
-              delivery: own ? delivery : null,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ?content,
+                _MessageText(
+                  text: text,
+                  metadata: metadata,
+                  timestamp: timestamp,
+                  delivery: own ? delivery : null,
+                ),
+              ],
             ),
           ),
         );

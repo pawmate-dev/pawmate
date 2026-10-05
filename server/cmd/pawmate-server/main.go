@@ -27,7 +27,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           httpapi.NewRouter(cfg, logger, pairingService),
+		Handler:           httpapi.WithAttachmentTimeouts(httpapi.NewRouter(cfg, logger, pairingService)),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      15 * time.Second,

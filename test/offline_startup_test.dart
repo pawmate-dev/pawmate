@@ -12,6 +12,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:pawmate/design/theme/pawmate_theme.dart';
 import 'package:pawmate/design/components/chat_message_bubble.dart';
+import 'package:pawmate/design/components/crayon_icon_button.dart';
 import 'package:pawmate/features/chat/chat_api.dart';
 import 'package:pawmate/features/chat/storage/chat_store.dart';
 import 'package:pawmate/features/pairing/couple_details_page.dart';
@@ -222,10 +223,10 @@ void main() {
       );
       await tester.enterText(find.byType(TextField), 'Must not send');
       await tester.pump();
-      final send = tester.widget<IconButton>(
+      final send = tester.widget<CrayonIconButton>(
         find.ancestor(
           of: find.byTooltip('Send message'),
-          matching: find.byType(IconButton),
+          matching: find.byType(CrayonIconButton),
         ),
       );
       expect(send.onPressed, isNull);

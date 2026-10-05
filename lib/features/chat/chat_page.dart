@@ -3,17 +3,29 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../design/components/chat_message_bubble.dart';
+import '../../design/components/chat_composer.dart';
+import '../../design/icons/chat/composer_doodle_icon.dart';
+import '../../design/theme/colors.dart';
+import '../../design/theme/spacing.dart';
 import '../../design/components/handdrawn_card.dart';
 import '../../design/icons/chat/message_status_icon.dart';
 import 'chat_controller.dart';
+import 'attachment_picker.dart';
+import 'chat_attachment_view.dart';
 import '../../l10n/generated/app_localizations.dart';
 
 /// The default couple-space tab, with text history and visibility-based receipts.
 class ChatPage extends StatefulWidget {
-  const ChatPage({required this.controller, required this.active, super.key});
+  const ChatPage({
+    required this.controller,
+    required this.active,
+    super.key,
+    this.attachmentPicker,
+  });
 
   final ChatController controller;
   final bool active;
+  final ChatAttachmentPicker? attachmentPicker;
 
   @override
   State<ChatPage> createState() => _ChatPageState();
@@ -27,6 +39,7 @@ class _ChatPageState extends State<ChatPage> {
   bool _atLatest = true;
   bool _draftRestored = false;
   Timer? _draftTimer;
+  bool _pickingAttachment = false;
 
   @override
   void initState() {
@@ -121,6 +134,94 @@ class _ChatPageState extends State<ChatPage> {
     _showLatest();
   }
 
+  /// Offers native file and image selection without disturbing the text draft.
+  void _showAttachments() {
+    final l10n = AppLocalizations.of(context)!;
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: PawmateColors.paper,
+        useSafeArea: true,
+        builder: (context) => SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(PawmateSpace.page),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.chatAttachments,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: PawmateSpace.small),
+                for (final entry in [
+                  (ComposerDoodle.file, l10n.sendFile),
+                  (ComposerDoodle.photo, l10n.sendPhoto),
+                ])
+                  TextButton.icon(
+                    onPressed:
+                        _pickingAttachment || widget.controller.unauthorized
+                        ? null
+                        : () {
+                            Navigator.of(context).pop();
+                            unawaited(
+                              _pickAttachment(entry.$1 == ComposerDoodle.photo),
+                            );
+                          },
+                    style: TextButton.styleFrom(
+                      splashFactory: NoSplash.splashFactory,
+                      overlayColor: Colors.transparent,
+                      animationDuration: Duration.zero,
+                      minimumSize: const Size(44, 44),
+                    ),
+                    icon: ComposerDoodleIcon(symbol: entry.$1),
+                    label: Text(entry.$2),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Picker cancellation leaves both the compose draft and outgoing queue unchanged.
+  Future<void> _pickAttachment(bool imageOnly) async {
+    if (_pickingAttachment || widget.controller.unauthorized) return;
+    _pickingAttachment = true;
+    try {
+      final upload = await (widget.attachmentPicker ?? pickChatAttachment)(
+        imageOnly,
+        AppLocalizations.of(context)!.sendPhoto,
+      );
+      if (mounted && upload != null) {
+        await widget.controller.sendAttachment(upload);
+        _showLatest();
+      }
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(AppLocalizations.of(context)!.attachmentPickError),
+          ),
+        );
+      }
+    } finally {
+      _pickingAttachment = false;
+    }
+  }
+
+  /// Makes the sticker placeholder explicit while preserving the compose draft.
+  void _showStickers() {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.chatStickersPlanned),
+        ),
+      );
+  }
+
   @override
   void dispose() {
     _draftTimer?.cancel();
@@ -183,6 +284,13 @@ class _ChatPageState extends State<ChatPage> {
                             key: ValueKey('pending-${outgoing.clientID}'),
                             text: outgoing.text,
                             own: true,
+                            content: outgoing.upload == null
+                                ? null
+                                : ChatAttachmentView(
+                                    attachment: outgoing.upload!.metadata,
+                                    controller: chat,
+                                    localBytes: outgoing.upload!.bytes,
+                                  ),
                             time: outgoing.createdAt,
                             isGroupEnd: groupEnd(
                               index,
@@ -223,6 +331,12 @@ class _ChatPageState extends State<ChatPage> {
                                   () => GlobalKey(),
                                 ),
                           text: message.text,
+                          content: message.attachment == null
+                              ? null
+                              : ChatAttachmentView(
+                                  attachment: message.attachment!,
+                                  controller: chat,
+                                ),
                           own: own,
                           time: message.createdAt,
                           isGroupEnd: groupEnd(
@@ -255,45 +369,26 @@ class _ChatPageState extends State<ChatPage> {
               icon: const Icon(Icons.arrow_downward),
               label: Text(l10n.unreadGoLatest(chat.unreadCount)),
             ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-              child: ValueListenableBuilder<TextEditingValue>(
-                valueListenable: _draft,
-                builder: (context, draft, _) => Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        onChanged: _saveDraft,
-                        controller: _draft,
-                        minLines: 1,
-                        maxLines: 4,
-                        keyboardType: TextInputType.multiline,
-                        textInputAction: TextInputAction.newline,
-                        decoration: InputDecoration(
-                          labelText: l10n.messagePartner,
-                          errorText: draft.text.runes.length > 4000
-                              ? l10n.messageTooLong
-                              : null,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton.filled(
-                      tooltip: l10n.sendMessage,
-                      onPressed:
-                          draft.text.trim().isEmpty ||
-                              draft.text.runes.length > 4000 ||
-                              chat.unauthorized
-                          ? null
-                          : _send,
-                      icon: const Icon(Icons.send),
-                    ),
-                  ],
-                ),
-              ),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _draft,
+            builder: (context, draft, _) => ChatComposer(
+              controller: _draft,
+              onChanged: _saveDraft,
+              onAttachments: _showAttachments,
+              onStickers: _showStickers,
+              inputLabel: l10n.messagePartner,
+              attachmentsLabel: l10n.chatAttachments,
+              stickersLabel: l10n.chatStickers,
+              sendLabel: l10n.sendMessage,
+              errorText: draft.text.runes.length > 4000
+                  ? l10n.messageTooLong
+                  : null,
+              onSend:
+                  draft.text.trim().isEmpty ||
+                      draft.text.runes.length > 4000 ||
+                      chat.unauthorized
+                  ? null
+                  : _send,
             ),
           ),
         ],

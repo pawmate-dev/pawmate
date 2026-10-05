@@ -98,6 +98,60 @@ abstract class AppLocalizations {
     Locale('zh'),
   ];
 
+  /// No description provided for @chatAttachments.
+  ///
+  /// In en, this message translates to:
+  /// **'More chat features'**
+  String get chatAttachments;
+
+  /// No description provided for @sendFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Send file'**
+  String get sendFile;
+
+  /// No description provided for @sendPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Send image'**
+  String get sendPhoto;
+
+  /// No description provided for @chatStickers.
+  ///
+  /// In en, this message translates to:
+  /// **'Stickers'**
+  String get chatStickers;
+
+  /// No description provided for @saveAttachment.
+  ///
+  /// In en, this message translates to:
+  /// **'Save attachment'**
+  String get saveAttachment;
+
+  /// No description provided for @attachmentSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Attachment saved'**
+  String get attachmentSaved;
+
+  /// No description provided for @attachmentUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Attachment unavailable. Check your connection and retry'**
+  String get attachmentUnavailable;
+
+  /// No description provided for @attachmentPickError.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a non-empty file up to 20 MiB. Pictures must be valid PNG, JPEG or GIF images up to 25 megapixels'**
+  String get attachmentPickError;
+
+  /// No description provided for @chatStickersPlanned.
+  ///
+  /// In en, this message translates to:
+  /// **'Your shared sticker collection is coming later.'**
+  String get chatStickersPlanned;
+
   /// No description provided for @chooseLanguage.
   ///
   /// In en, this message translates to:

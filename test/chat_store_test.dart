@@ -58,6 +58,9 @@ void main() {
   test('version-one outbox migrates without losing pending messages', () async {
     final database = sqlite3.openInMemory();
     database.execute(
+      'CREATE TABLE messages (id INTEGER PRIMARY KEY, client_id TEXT, sender TEXT, text TEXT, created_at TEXT, confirmed INTEGER)',
+    );
+    database.execute(
       'CREATE TABLE outbox (client_id TEXT PRIMARY KEY, text TEXT NOT NULL)',
     );
     database.execute(

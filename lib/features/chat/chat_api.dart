@@ -1,9 +1,76 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 
 import '../pairing/pairing_api.dart';
 import '../pairing/pairing_credentials.dart';
+
+/// Metadata exchanged with history; binary content travels separately with authentication.
+class ChatAttachment {
+  const ChatAttachment({
+    required this.messageID,
+    required this.kind,
+    required this.name,
+    required this.contentType,
+    required this.size,
+    required this.digest,
+  });
+  static const maxBytes = 20 * 1024 * 1024;
+  final int messageID;
+  final String kind;
+  final String name;
+  final String contentType;
+  final int size;
+  final String digest;
+  factory ChatAttachment.fromJson(Map<String, dynamic> value) {
+    final attachment = ChatAttachment(
+      messageID: value['message_id'] as int,
+      kind: value['kind'] as String,
+      name: value['name'] as String,
+      contentType: value['content_type'] as String,
+      size: value['size'] as int,
+      digest: value['sha256'] as String,
+    );
+    if (attachment.messageID < 0 ||
+        !['file', 'image'].contains(attachment.kind) ||
+        attachment.size <= 0 ||
+        attachment.size > maxBytes ||
+        attachment.name.isEmpty ||
+        attachment.name == '.' ||
+        attachment.name == '..' ||
+        utf8.encode(attachment.name).length > 255 ||
+        attachment.name.contains(RegExp(r'[/\\\x00-\x1f\x7f-\x9f]')) ||
+        (attachment.kind == 'file' &&
+            attachment.contentType != 'application/octet-stream') ||
+        !RegExp(r'^[a-f0-9]{64}$').hasMatch(attachment.digest) ||
+        (attachment.kind == 'image' &&
+            ![
+              'image/png',
+              'image/jpeg',
+              'image/gif',
+            ].contains(attachment.contentType))) {
+      throw const FormatException('Invalid attachment metadata');
+    }
+    return attachment;
+  }
+  Map<String, dynamic> toJson() => {
+    'message_id': messageID,
+    'kind': kind,
+    'name': name,
+    'content_type': contentType,
+    'size': size,
+    'sha256': digest,
+  };
+}
+
+/// Private bytes and immutable metadata retained for offline uploads and retries.
+class AttachmentUpload {
+  const AttachmentUpload(this.metadata, this.bytes);
+  final ChatAttachment metadata;
+  final Uint8List bytes;
+}
 
 /// A text message whose identity and order are assigned by the private server.
 class ChatMessage {
@@ -14,22 +81,34 @@ class ChatMessage {
     required this.text,
     required this.createdAt,
     this.serverConfirmed = true,
+    this.attachment,
   });
 
   /// Decodes a persisted message, including messages from this member's other devices.
-  factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
-    id: json['id'] as int,
-    clientID: json['client_id'] as String,
-    sender: json['sender'] as String,
-    text: json['text'] as String,
-    createdAt: DateTime.parse(json['created_at'] as String),
-  );
+  factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    final message = ChatMessage(
+      id: json['id'] as int,
+      clientID: json['client_id'] as String,
+      sender: json['sender'] as String,
+      text: json['text'] as String,
+      createdAt: DateTime.parse(json['created_at'] as String),
+      attachment: json['attachment'] == null
+          ? null
+          : ChatAttachment.fromJson(json['attachment'] as Map<String, dynamic>),
+    );
+    if (message.attachment != null &&
+        (message.id <= 0 || message.attachment!.messageID != message.id)) {
+      throw const FormatException('Attachment message identity mismatch');
+    }
+    return message;
+  }
 
   final int id;
   final String clientID;
   final String sender;
   final String text;
   final DateTime createdAt;
+  final ChatAttachment? attachment;
 
   /// Imported device history remains local-only until corroborated by the server.
   final bool serverConfirmed;
@@ -41,6 +120,7 @@ class ChatMessage {
     'sender': sender,
     'text': text,
     'created_at': createdAt.toUtc().toIso8601String(),
+    if (attachment != null) 'attachment': attachment!.toJson(),
   };
 }
 
@@ -110,6 +190,77 @@ class ChatApi {
       ChatMessage.fromJson(
         await _post('/messages', {'client_id': clientID, 'text': text}),
       );
+
+  /// Streams a bounded multipart request with a stable retry identity, never a public URL.
+  Future<ChatMessage> sendAttachment(
+    String clientID,
+    AttachmentUpload upload,
+  ) async {
+    final request =
+        http.MultipartRequest(
+            'POST',
+            PairingApi.resolveEndpoint(
+              PairingApi.parseServerURL(credentials.serverURL),
+              '/api/v1/chat/attachments',
+            ),
+          )
+          ..headers['authorization'] = 'Bearer ${credentials.accessToken}'
+          ..fields.addAll({'client_id': clientID, 'kind': upload.metadata.kind})
+          ..files.add(
+            http.MultipartFile.fromBytes(
+              'file',
+              upload.bytes,
+              filename: upload.metadata.name,
+            ),
+          );
+    final response = await _client
+        .send(request)
+        .timeout(const Duration(seconds: 90));
+    return ChatMessage.fromJson(
+      _decode(
+        await http.Response.fromStream(
+          response,
+        ).timeout(const Duration(seconds: 90)),
+      ),
+    );
+  }
+
+  /// Bounds streamed downloads and verifies content identity before caching or opening.
+  Future<Uint8List> downloadAttachment(ChatAttachment attachment) async {
+    final request = http.Request(
+      'GET',
+      PairingApi.resolveEndpoint(
+        PairingApi.parseServerURL(credentials.serverURL),
+        '/api/v1/chat/attachments/${attachment.messageID}',
+      ),
+    )..headers.addAll(_headers);
+    final response = await _client
+        .send(request)
+        .timeout(const Duration(seconds: 30));
+    if (response.statusCode != 200) {
+      await response.stream.drain<void>().timeout(const Duration(seconds: 30));
+      throw PairingApiException(
+        'Attachment unavailable',
+        statusCode: response.statusCode,
+      );
+    }
+    final bytes = BytesBuilder(copy: false);
+    await for (final chunk in response.stream.timeout(
+      const Duration(seconds: 30),
+    )) {
+      if (bytes.length + chunk.length > attachment.size ||
+          bytes.length + chunk.length > ChatAttachment.maxBytes) {
+        throw const FormatException('Attachment size mismatch');
+      }
+      bytes.add(chunk);
+    }
+    final result = bytes.takeBytes();
+    if (result.length != attachment.size ||
+        sha256.convert(result).toString() != attachment.digest) {
+      throw const FormatException('Attachment integrity mismatch');
+    }
+    return result;
+  }
 
   /// Advances this member's read cursor; receipts are shared across devices.
   Future<int> markRead(int messageID) async =>

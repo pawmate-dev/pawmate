@@ -18,11 +18,12 @@ var (
 
 // Message is a persisted text message with a server-assigned sequence number.
 type Message struct {
-	ID        int64     `json:"id"`
-	ClientID  string    `json:"client_id"`
-	Sender    string    `json:"sender"`
-	Text      string    `json:"text"`
-	CreatedAt time.Time `json:"created_at"`
+	ID         int64       `json:"id"`
+	ClientID   string      `json:"client_id"`
+	Sender     string      `json:"sender"`
+	Text       string      `json:"text"`
+	CreatedAt  time.Time   `json:"created_at"`
+	Attachment *Attachment `json:"attachment,omitempty"`
 }
 
 // MessagePage combines history with member-level read progress and unread count.
@@ -75,6 +76,13 @@ func (service *Service) SendMessage(token, clientID, text string) (Message, erro
 		if stored.Text != text {
 			return ErrMessageConflict
 		}
+		var attachments int64
+		if err := tx.Model(&attachmentRecord{}).Where("message_id = ?", stored.ID).Count(&attachments).Error; err != nil {
+			return err
+		}
+		if attachments != 0 {
+			return ErrMessageConflict
+		}
 		record = stored
 		return nil
 	})
@@ -119,7 +127,15 @@ func (service *Service) Messages(token string, afterID, beforeID int64, limit in
 			records = records[:limit]
 		}
 		for _, record := range records {
-			page.Messages = append(page.Messages, record.message())
+			message := record.message()
+			var metadata attachmentRecord
+			err := tx.Select("message_id", "kind", "name", "content_type", "size", "sha256").Where("message_id = ?", record.ID).Take(&metadata).Error
+			if err == nil {
+				message.Attachment = metadata.metadata()
+			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
+			page.Messages = append(page.Messages, message)
 		}
 		if afterID == 0 {
 			for i, j := 0, len(page.Messages)-1; i < j; i, j = i+1, j-1 {

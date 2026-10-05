@@ -27,11 +27,47 @@ GET  /api/v1/pairing/session
 GET  /api/v1/chat/messages
 POST /api/v1/chat/messages
 POST /api/v1/chat/read
+POST /api/v1/chat/attachments
+GET  /api/v1/chat/attachments/:id
 GET  /api/v1/pairing/devices
 DELETE /api/v1/pairing/devices/:id
 POST /api/v1/pairing/devices/login-codes
 POST /api/v1/pairing/devices/login-codes/redeem
 ```
+
+## Chat attachments
+
+Paired devices can upload a multipart request to `/api/v1/chat/attachments`
+using the same bearer authentication as text messages. Fields are `client_id`
+(a stable retry identity), `kind` (`file` or `image`), and a single `file`.
+Each attachment is limited to 20 MiB. Images must be valid PNG, JPEG, or GIF
+and no larger than 25 million pixels. Generic files download as
+`application/octet-stream`; SVG and other active content are not image previews.
+
+Upload requests have a 75-second body-read deadline and a 90-second response
+deadline (including upload time). The normal 10-second read, 15-second write,
+and 5-second header deadlines remain in place for other requests. Upload body
+timeouts return HTTP 408 `upload_timeout`, oversized bodies return 413, and
+invalid multipart content returns 400. Restart the server after updating it.
+
+The response is a normal chat message with attachment metadata, including a
+SHA-256 digest. Retrying identical content with the same client ID returns the
+original message; conflicting content is rejected. Attachments share ordinary
+message ordering, unread counts, and receipts. History contains metadata, never
+file bytes. Downloads revalidate the device token and couple ownership; there
+are no anonymous attachment URLs.
+
+Files are stored transactionally in the server SQLite database and are included
+in its backups. Native clients persist pending uploads and downloaded content
+in the encrypted local chat database. Downloaded bytes are size- and
+digest-verified before caching. Android saves through the system document
+picker, iOS through document export, and desktop through a save dialog, without
+broad storage permissions. Browser file saving is not yet implemented.
+
+Device-to-device history exchange carries metadata only. The separate
+`importAttachmentBytes` interface accepts digest-verified content without
+advancing sync cursors or read receipts; peer discovery and transfer transport
+remain future work.
 
 Create an invitation by sending the configured server URL:
 
