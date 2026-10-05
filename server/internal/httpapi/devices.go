@@ -72,6 +72,7 @@ func deviceLoginCodeHandler(service *pairing.Service) gin.HandlerFunc {
 // redeemDeviceLoginCodeHandler exchanges a code for an independent device token.
 func redeemDeviceLoginCodeHandler(service *pairing.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxCredentialRequestBodyBytes)
 		var request struct {
 			Code       string `json:"code" binding:"required"`
 			DeviceName string `json:"device_name" binding:"max=80"`

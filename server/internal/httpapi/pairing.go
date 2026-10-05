@@ -10,6 +10,8 @@ import (
 	"pawmate/server/internal/pairing"
 )
 
+const maxCredentialRequestBodyBytes = 8 * 1024
+
 type createInviteRequest struct {
 	Profile    *pairing.Profile `json:"profile" binding:"required"`
 	ServerURL  string           `json:"server_url" binding:"required"`
@@ -130,6 +132,7 @@ func redeemInviteHandler(service *pairing.Service) gin.HandlerFunc {
 // recoverPairingHandler rotates a member's credentials using their recovery code.
 func recoverPairingHandler(service *pairing.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxCredentialRequestBodyBytes)
 		var request recoverPairingRequest
 		if err := c.ShouldBindJSON(&request); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request"})
