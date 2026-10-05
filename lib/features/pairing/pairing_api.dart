@@ -324,10 +324,7 @@ class PairingApi {
   Future<List<PairingDevice>> getDevices(String server, String token) async {
     final response = await _client
         .get(
-          resolveEndpoint(
-            _parseServerURL(server),
-            '/api/v1/pairing/devices',
-          ),
+          resolveEndpoint(_parseServerURL(server), '/api/v1/pairing/devices'),
           headers: {'authorization': 'Bearer $token'},
         )
         .timeout(const Duration(seconds: 10));

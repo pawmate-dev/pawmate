@@ -75,11 +75,11 @@ class ChatApi {
 
   /// Retrieves recent history, incremental messages, or an older history page.
   Future<ChatSnapshot> messages({int afterID = 0, int beforeID = 0}) async {
-    final uri = PairingApi.resolveEndpoint(
-      PairingApi.parseServerURL(credentials.serverURL),
-      '/api/v1/chat/messages',
-    )
-        .replace(
+    final uri =
+        PairingApi.resolveEndpoint(
+          PairingApi.parseServerURL(credentials.serverURL),
+          '/api/v1/chat/messages',
+        ).replace(
           queryParameters: {
             if (afterID > 0) 'after_id': '$afterID',
             if (beforeID > 0) 'before_id': '$beforeID',
