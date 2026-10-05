@@ -193,7 +193,7 @@ class PairingApi {
     final serverURL = _parseServerURL(rawServerURL);
     final response = await _client
         .post(
-          serverURL.resolve('/api/v1/pairing/invites'),
+          resolveEndpoint(serverURL, '/api/v1/pairing/invites'),
           headers: const {'content-type': 'application/json'},
           body: jsonEncode({
             'server_url': serverURL.toString(),
@@ -222,7 +222,7 @@ class PairingApi {
     final serverURL = _parseServerURL(rawServerURL);
     final response = await _client
         .get(
-          serverURL.resolve('/api/v1/pairing/invites/status'),
+          resolveEndpoint(serverURL, '/api/v1/pairing/invites/status'),
           headers: {'authorization': 'Bearer $inviterToken'},
         )
         .timeout(const Duration(seconds: 10));
@@ -246,7 +246,7 @@ class PairingApi {
     final serverURL = _parseServerURL(rawServerURL);
     final response = await _client
         .get(
-          serverURL.resolve('/api/v1/pairing/session'),
+          resolveEndpoint(serverURL, '/api/v1/pairing/session'),
           headers: {'authorization': 'Bearer $accessToken'},
         )
         .timeout(const Duration(seconds: 10));
@@ -271,7 +271,7 @@ class PairingApi {
     final serverURL = _parseServerURL(rawServerURL);
     final response = await _client
         .post(
-          serverURL.resolve('/api/v1/pairing/invites/redeem'),
+          resolveEndpoint(serverURL, '/api/v1/pairing/invites/redeem'),
           headers: const {'content-type': 'application/json'},
           body: jsonEncode({
             'code': code,
@@ -300,7 +300,7 @@ class PairingApi {
     final serverURL = _parseServerURL(rawServerURL);
     final response = await _client
         .post(
-          serverURL.resolve('/api/v1/pairing/recover'),
+          resolveEndpoint(serverURL, '/api/v1/pairing/recover'),
           headers: const {'content-type': 'application/json'},
           body: jsonEncode({
             'recovery_code': recoveryCode.trim(),
@@ -324,7 +324,10 @@ class PairingApi {
   Future<List<PairingDevice>> getDevices(String server, String token) async {
     final response = await _client
         .get(
-          _parseServerURL(server).resolve('/api/v1/pairing/devices'),
+          resolveEndpoint(
+            _parseServerURL(server),
+            '/api/v1/pairing/devices',
+          ),
           headers: {'authorization': 'Bearer $token'},
         )
         .timeout(const Duration(seconds: 10));
@@ -341,9 +344,10 @@ class PairingApi {
   ) async {
     final response = await _client
         .post(
-          _parseServerURL(
-            server,
-          ).resolve('/api/v1/pairing/devices/login-codes'),
+          resolveEndpoint(
+            _parseServerURL(server),
+            '/api/v1/pairing/devices/login-codes',
+          ),
           headers: {'authorization': 'Bearer $token'},
         )
         .timeout(const Duration(seconds: 10));
@@ -362,9 +366,10 @@ class PairingApi {
   ) async {
     final response = await _client
         .post(
-          _parseServerURL(
-            server,
-          ).resolve('/api/v1/pairing/devices/login-codes/redeem'),
+          resolveEndpoint(
+            _parseServerURL(server),
+            '/api/v1/pairing/devices/login-codes/redeem',
+          ),
           headers: const {'content-type': 'application/json'},
           body: jsonEncode({
             'code': code.trim(),
@@ -384,9 +389,10 @@ class PairingApi {
   Future<void> revokeDevice(String server, String token, String id) async {
     final response = await _client
         .delete(
-          _parseServerURL(
-            server,
-          ).resolve('/api/v1/pairing/devices/${Uri.encodeComponent(id)}'),
+          resolveEndpoint(
+            _parseServerURL(server),
+            '/api/v1/pairing/devices/${Uri.encodeComponent(id)}',
+          ),
           headers: {'authorization': 'Bearer $token'},
         )
         .timeout(const Duration(seconds: 10));
@@ -428,6 +434,15 @@ class PairingApi {
   /// Shares the instance URL policy with other authenticated feature clients.
   static Uri parseServerURL(String rawServerURL) =>
       _parseServerURL(rawServerURL);
+
+  /// Resolves an API path under the configured instance prefix.
+  static Uri resolveEndpoint(Uri serverURL, String endpointPath) {
+    final basePath = serverURL.path.endsWith('/')
+        ? serverURL.path
+        : '${serverURL.path}/';
+    final relativePath = endpointPath.replaceFirst(RegExp(r'^/+'), '');
+    return serverURL.replace(path: basePath).resolve(relativePath);
+  }
 
   /// Extracts a safe error message from a JSON API response.
   String _messageFor(http.Response response) {
