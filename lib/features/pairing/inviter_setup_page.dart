@@ -5,6 +5,7 @@ import '../../design/layouts/handdrawn_scaffold.dart';
 import 'widgets/invite_result_card.dart';
 import 'widgets/pairing_error_note.dart';
 import 'widgets/server_setup_card.dart';
+import 'widgets/member_profile_editor.dart';
 import 'pairing_api.dart';
 import 'pairing_credentials.dart';
 import 'paired_home_page.dart';
@@ -19,6 +20,7 @@ class InviterSetupPage extends StatefulWidget {
 
 class _InviterSetupPageState extends State<InviterSetupPage> {
   final _formKey = GlobalKey<FormState>();
+  final _profileKey = GlobalKey<MemberProfileEditorState>();
   final _serverURLController = TextEditingController();
   final _api = PairingApi();
   final _credentials = PairingCredentials();
@@ -76,7 +78,10 @@ class _InviterSetupPageState extends State<InviterSetupPage> {
       _status = null;
     });
     try {
-      final invite = await _api.createInvite(_serverURLController.text);
+      final invite = await _api.createInvite(
+        _serverURLController.text,
+        profile: _profileKey.currentState!.profile!,
+      );
       if (!mounted) return;
       setState(() => _invite = invite);
       try {
@@ -104,6 +109,8 @@ class _InviterSetupPageState extends State<InviterSetupPage> {
         setState(
           () => _errorMessage = error.message.startsWith('Use an HTTP')
               ? l10n.invalidServerAddress
+              : error.message == 'invalid_profile'
+              ? l10n.profileRejected
               : error.statusCode == null
               ? l10n.serverUnreachable
               : l10n.requestFailed,
@@ -217,12 +224,17 @@ class _InviterSetupPageState extends State<InviterSetupPage> {
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
           children: [
             const SizedBox(height: 6),
-            ServerSetupCard(
-              formKey: _formKey,
-              controller: _serverURLController,
-              isLoading: _isLoading,
-              onCreateInvite: () => _createInvite(),
-            ),
+            if (invite == null || !invite.expiresAt.isAfter(DateTime.now()))
+              ServerSetupCard(
+                formKey: _formKey,
+                controller: _serverURLController,
+                isLoading: _isLoading,
+                onCreateInvite: () => _createInvite(),
+                profileEditor: MemberProfileEditor(
+                  key: _profileKey,
+                  enabled: !_isLoading,
+                ),
+              ),
             if (_errorMessage != null) ...[
               const SizedBox(height: 18),
               PairingErrorNote(message: _errorMessage!),

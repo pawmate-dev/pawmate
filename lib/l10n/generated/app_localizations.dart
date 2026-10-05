@@ -949,6 +949,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'My device'**
   String get myDeviceName;
+
+  /// No description provided for @uploadAvatar.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload avatar'**
+  String get uploadAvatar;
+
+  /// No description provided for @changeAvatar.
+  ///
+  /// In en, this message translates to:
+  /// **'Change avatar'**
+  String get changeAvatar;
+
+  /// No description provided for @avatarImages.
+  ///
+  /// In en, this message translates to:
+  /// **'Avatar images'**
+  String get avatarImages;
+
+  /// No description provided for @avatarRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an avatar before continuing.'**
+  String get avatarRequired;
+
+  /// No description provided for @avatarUploadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not read this image. Choose a PNG or JPEG under 10 MB.'**
+  String get avatarUploadError;
+
+  /// No description provided for @nickname.
+  ///
+  /// In en, this message translates to:
+  /// **'Nickname'**
+  String get nickname;
+
+  /// No description provided for @nicknameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'What should your partner call you?'**
+  String get nicknameHint;
+
+  /// No description provided for @nicknameInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Use a nickname between 1 and 32 characters, without control characters.'**
+  String get nicknameInvalid;
+
+  /// No description provided for @profileRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'The server could not save your profile. Check your nickname and avatar.'**
+  String get profileRejected;
+
+  /// No description provided for @yourProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'You'**
+  String get yourProfile;
+
+  /// No description provided for @partnerProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Your partner'**
+  String get partnerProfile;
 }
 
 class _AppLocalizationsDelegate

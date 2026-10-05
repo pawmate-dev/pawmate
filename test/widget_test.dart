@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'package:pawmate/main.dart';
+import 'package:pawmate/l10n/generated/app_localizations.dart';
 import 'package:pawmate/features/pairing/device_login_page.dart';
 import 'package:pawmate/design/theme/pawmate_theme.dart';
 
@@ -43,6 +44,8 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: buildPawmateTheme(),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(
               context,

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'member_profile.dart';
 
 /// A one-time invitation returned by the Pawmate instance.
 class PairingInvite {
@@ -79,19 +80,33 @@ class RecoveredCredentials {
 
 /// Represents the authenticated member's server-side pairing session.
 class PairingSession {
-  const PairingSession({required this.role, required this.status, this.pairID});
+  const PairingSession({
+    required this.role,
+    required this.status,
+    this.pairID,
+    this.profile,
+    this.partner,
+  });
 
   factory PairingSession.fromJson(Map<String, dynamic> json) {
     return PairingSession(
       pairID: json['pair_id'] as String?,
       role: json['role'] as String,
       status: json['status'] as String,
+      profile: json['profile'] == null
+          ? null
+          : MemberProfile.fromJson(json['profile'] as Map<String, dynamic>),
+      partner: json['partner'] == null
+          ? null
+          : MemberProfile.fromJson(json['partner'] as Map<String, dynamic>),
     );
   }
 
   final String? pairID;
   final String role;
   final String status;
+  final MemberProfile? profile;
+  final MemberProfile? partner;
 }
 
 /// A short-lived code created by an already authenticated device.
@@ -171,7 +186,10 @@ class PairingApi {
   void close() => _client.close();
 
   /// Creates an invitation on the configured server instance.
-  Future<PairingInvite> createInvite(String rawServerURL) async {
+  Future<PairingInvite> createInvite(
+    String rawServerURL, {
+    required MemberProfile profile,
+  }) async {
     final serverURL = _parseServerURL(rawServerURL);
     final response = await _client
         .post(
@@ -179,6 +197,7 @@ class PairingApi {
           headers: const {'content-type': 'application/json'},
           body: jsonEncode({
             'server_url': serverURL.toString(),
+            'profile': profile.toJson(),
             'device_name': defaultDeviceName,
           }),
         )
@@ -244,13 +263,21 @@ class PairingApi {
   }
 
   /// Redeems a one-time invite code on the server encoded in the invite link.
-  Future<PairingStatus> redeemInvite(String rawServerURL, String code) async {
+  Future<PairingStatus> redeemInvite(
+    String rawServerURL,
+    String code, {
+    required MemberProfile profile,
+  }) async {
     final serverURL = _parseServerURL(rawServerURL);
     final response = await _client
         .post(
           serverURL.resolve('/api/v1/pairing/invites/redeem'),
           headers: const {'content-type': 'application/json'},
-          body: jsonEncode({'code': code, 'device_name': defaultDeviceName}),
+          body: jsonEncode({
+            'code': code,
+            'device_name': defaultDeviceName,
+            'profile': profile.toJson(),
+          }),
         )
         .timeout(const Duration(seconds: 10));
 

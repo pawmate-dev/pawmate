@@ -1,6 +1,6 @@
 [book]
-title = "Pawmate Implementation Guide"
-description = "A human-in-the-loop guide for building the private two-person pawmate app."
+title = "Pawmate Documentation"
+description = "Product behavior, architecture, and API documentation for Pawmate."
 language = "en"
 src = "src"
 

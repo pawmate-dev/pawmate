@@ -64,6 +64,8 @@ type Session struct {
 	Role     string
 	Status   string
 	DeviceID string
+	Profile  *Profile
+	Partner  *Profile
 }
 
 // Service stores the single couple relationship for one private instance.
@@ -130,6 +132,20 @@ func (service *Service) Close() error {
 
 // CreateInvite creates one expiring invitation for the instance.
 func (service *Service) CreateInvite(serverURL string, deviceNames ...string) (Invite, error) {
+	return service.createInvite(serverURL, nil, deviceNames...)
+}
+
+// CreateInviteWithProfile saves the inviter's identity in the invitation transaction.
+func (service *Service) CreateInviteWithProfile(serverURL, deviceName string, profile Profile) (Invite, error) {
+	profile, err := normalizeProfile(profile)
+	if err != nil {
+		return Invite{}, err
+	}
+	return service.createInvite(serverURL, &profile, deviceName)
+}
+
+// createInvite also supports profile-free legacy service callers.
+func (service *Service) createInvite(serverURL string, profile *Profile, deviceNames ...string) (Invite, error) {
 	baseURL, err := normalizeServerURL(serverURL)
 	if err != nil {
 		return Invite{}, err
@@ -177,6 +193,14 @@ func (service *Service) CreateInvite(serverURL string, deviceNames ...string) (I
 			return fmt.Errorf("save pairing invitation: %w", err)
 		}
 		// An expired, unpaired invitation starts a new identity and device set.
+		if err := tx.Where("1 = 1").Delete(&profileRecord{}).Error; err != nil {
+			return err
+		}
+		if profile != nil {
+			if err := tx.Create(&profileRecord{Role: "inviter", Nickname: profile.Nickname, AvatarBase64: profile.AvatarBase64}).Error; err != nil {
+				return err
+			}
+		}
 		if err := tx.Where("1 = 1").Delete(&deviceCodeRecord{}).Error; err != nil {
 			return err
 		}
@@ -200,6 +224,20 @@ func (service *Service) CreateInvite(serverURL string, deviceNames ...string) (I
 
 // RedeemInvite atomically consumes an invite and creates the instance pair.
 func (service *Service) RedeemInvite(code string, deviceNames ...string) (PairingStatus, error) {
+	return service.redeemInvite(code, nil, deviceNames...)
+}
+
+// RedeemInviteWithProfile saves the invitee's identity while consuming the code.
+func (service *Service) RedeemInviteWithProfile(code, deviceName string, profile Profile) (PairingStatus, error) {
+	profile, err := normalizeProfile(profile)
+	if err != nil {
+		return PairingStatus{}, err
+	}
+	return service.redeemInvite(code, &profile, deviceName)
+}
+
+// redeemInvite keeps identity creation and pairing completion atomic.
+func (service *Service) redeemInvite(code string, profile *Profile, deviceNames ...string) (PairingStatus, error) {
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
@@ -242,6 +280,11 @@ func (service *Service) RedeemInvite(code string, deviceNames ...string) (Pairin
 		}
 		if result.RowsAffected != 1 {
 			return ErrInvalidInvite
+		}
+		if profile != nil {
+			if err := tx.Create(&profileRecord{Role: "invitee", Nickname: profile.Nickname, AvatarBase64: profile.AvatarBase64}).Error; err != nil {
+				return err
+			}
 		}
 		_, err := service.insertDevice(tx, "invitee", inviteeToken, deviceName(deviceNames))
 		return err

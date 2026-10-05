@@ -483,4 +483,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get myDeviceName => 'My device';
+
+  @override
+  String get uploadAvatar => 'Upload avatar';
+
+  @override
+  String get changeAvatar => 'Change avatar';
+
+  @override
+  String get avatarImages => 'Avatar images';
+
+  @override
+  String get avatarRequired => 'Choose an avatar before continuing.';
+
+  @override
+  String get avatarUploadError =>
+      'Could not read this image. Choose a PNG or JPEG under 10 MB.';
+
+  @override
+  String get nickname => 'Nickname';
+
+  @override
+  String get nicknameHint => 'What should your partner call you?';
+
+  @override
+  String get nicknameInvalid =>
+      'Use a nickname between 1 and 32 characters, without control characters.';
+
+  @override
+  String get profileRejected =>
+      'The server could not save your profile. Check your nickname and avatar.';
+
+  @override
+  String get yourProfile => 'You';
+
+  @override
+  String get partnerProfile => 'Your partner';
 }

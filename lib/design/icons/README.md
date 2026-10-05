@@ -3,6 +3,7 @@
 Organize native Dart illustrations by purpose, not by individual feature pages:
 
 - `access/`: invitations, recovery and additional-device login.
+- `profile/`: avatar upload circles and plus signs, reused by profile controls.
 - Future `chat/`, `home/` and `play/` families should reuse `CrayonStrokes`.
 - `crayon_strokes.dart`: shared dry-wax renderer, not a catalog of symbols.
 
@@ -28,3 +29,8 @@ PAWMATE_PREVIEW_FONT=/path/to/reading-font.ttf flutter test \
 This opt-in capture test is skipped in normal CI. `login-before.png` is a
 reconstruction of the former stacked composition, not a historical device
 screenshot. Both previews contain no real invitation or credentials.
+
+Member-profile previews are captured by `test/profile_preview_test.dart`.
+Use a Chinese-capable reading font and optionally set
+`PAWMATE_PREVIEW_MONO_FONT` to a monospace font for server URLs. The opt-in test
+writes English and Chinese inviter/invitee screenshots under `books/src/images/`.

@@ -29,12 +29,16 @@ class _DeviceLoginPageState extends State<DeviceLoginPage> {
   final _api = PairingApi();
   final _credentials = PairingCredentials();
   bool _busy = false;
+  bool _initializedName = false;
   String? _error;
 
   @override
-  void initState() {
-    super.initState();
-    _name.text = AppLocalizations.of(context)!.myDeviceName;
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initializedName) {
+      _name.text = AppLocalizations.of(context)!.myDeviceName;
+      _initializedName = true;
+    }
   }
 
   @override

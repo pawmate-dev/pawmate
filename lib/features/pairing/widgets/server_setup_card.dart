@@ -15,12 +15,14 @@ class ServerSetupCard extends StatelessWidget {
     required this.isLoading,
     required this.onCreateInvite,
     super.key,
+    this.profileEditor,
   });
 
   final GlobalKey<FormState> formKey;
   final TextEditingController controller;
   final bool isLoading;
   final VoidCallback onCreateInvite;
+  final Widget? profileEditor;
 
   @override
   Widget build(BuildContext context) {
@@ -31,9 +33,12 @@ class ServerSetupCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Center(
-              child: AccessDoodleIcon(symbol: AccessDoodle.createInvitation),
-            ),
+            if (profileEditor != null)
+              profileEditor!
+            else
+              const Center(
+                child: AccessDoodleIcon(symbol: AccessDoodle.createInvitation),
+              ),
             const SizedBox(height: 12),
             Text(
               l10n.chooseHomeAddress,

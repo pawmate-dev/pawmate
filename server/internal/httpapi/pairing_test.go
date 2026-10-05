@@ -1,7 +1,11 @@
 package httpapi
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json"
+	"image"
+	"image/png"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -26,7 +30,7 @@ func TestPairingHTTPFlow(t *testing.T) {
 		Port:         "8080",
 	}, slog.New(slog.NewTextHandler(testLogWriter{}, nil)), service)
 
-	createResponse := performJSONRequest(t, router, http.MethodPost, "/api/v1/pairing/invites", `{"server_url":"https://home.example.test"}`, "")
+	createResponse := performJSONRequest(t, router, http.MethodPost, "/api/v1/pairing/invites", profileRequest(t, map[string]string{"server_url": "https://home.example.test"}, "Ash"), "")
 	if createResponse.Code != http.StatusCreated {
 		t.Fatalf("create status = %d, want %d", createResponse.Code, http.StatusCreated)
 	}
@@ -50,7 +54,7 @@ func TestPairingHTTPFlow(t *testing.T) {
 		t.Fatal(err)
 	}
 	code := inviteURL.Query().Get("code")
-	redeemResponse := performJSONRequest(t, router, http.MethodPost, "/api/v1/pairing/invites/redeem", `{"code":"`+code+`"}`, "")
+	redeemResponse := performJSONRequest(t, router, http.MethodPost, "/api/v1/pairing/invites/redeem", profileRequest(t, map[string]string{"code": code}, "Fern"), "")
 	if redeemResponse.Code != http.StatusOK {
 		t.Fatalf("redeem status = %d, want %d", redeemResponse.Code, http.StatusOK)
 	}
@@ -90,6 +94,14 @@ func TestPairingHTTPFlow(t *testing.T) {
 		if response.Code != http.StatusOK {
 			t.Fatal("adding a device invalidated a member session")
 		}
+		var session struct {
+			Profile pairing.Profile `json:"profile"`
+			Partner pairing.Profile `json:"partner"`
+		}
+		decodeJSON(t, response, &session)
+		if session.Profile.Nickname == "" || session.Partner.Nickname == "" || session.Profile.Nickname == session.Partner.Nickname {
+			t.Fatal("session did not restore both distinct member identities")
+		}
 	}
 	devicesResponse := performJSONRequest(t, router, http.MethodGet, "/api/v1/pairing/devices", "", "Bearer "+tablet.Token)
 	var devices struct {
@@ -119,6 +131,62 @@ func TestPairingHTTPFlow(t *testing.T) {
 	rejected := performJSONRequest(t, router, http.MethodGet, "/api/v1/pairing/session", "", "Bearer "+invite.InviterToken)
 	if rejected.Code != http.StatusUnauthorized {
 		t.Fatal("revoked token still authenticates")
+	}
+}
+
+// profileRequest creates a real PNG fixture, avoiding a test-only validation bypass.
+func profileRequest(t *testing.T, fields map[string]string, nickname string) string {
+	t.Helper()
+	var imageBytes bytes.Buffer
+	if err := png.Encode(&imageBytes, image.NewRGBA(image.Rect(0, 0, 8, 8))); err != nil {
+		t.Fatal(err)
+	}
+	body := map[string]any{"profile": pairing.Profile{Nickname: nickname, AvatarBase64: base64.StdEncoding.EncodeToString(imageBytes.Bytes())}}
+	for key, value := range fields {
+		body[key] = value
+	}
+	data, err := json.Marshal(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
+}
+
+func TestInvitationRequiresValidProfile(t *testing.T) {
+	service := pairing.NewService()
+	defer service.Close()
+	router := NewRouter(config.Config{Environment: "test"}, slog.New(slog.NewTextHandler(testLogWriter{}, nil)), service)
+	for _, body := range []string{
+		`{"server_url":"https://home.example.test"}`,
+		`{"server_url":"https://home.example.test","profile":{"nickname":"Ash","avatar_base64":"garbage"}}`,
+		profileRequest(t, map[string]string{"server_url": "https://home.example.test"}, "  "),
+	} {
+		response := performJSONRequest(t, router, http.MethodPost, "/api/v1/pairing/invites", body, "")
+		if response.Code != http.StatusBadRequest {
+			t.Fatalf("invalid profile accepted: %d", response.Code)
+		}
+	}
+	create := performJSONRequest(t, router, http.MethodPost, "/api/v1/pairing/invites", profileRequest(t, map[string]string{"server_url": "https://home.example.test"}, "Ash"), "")
+	if create.Code != http.StatusCreated {
+		t.Fatal("invalid requests reserved the instance")
+	}
+	var invite struct {
+		URL string `json:"invite_url"`
+	}
+	decodeJSON(t, create, &invite)
+	uri, _ := url.Parse(invite.URL)
+	code := uri.Query().Get("code")
+	response := performJSONRequest(t, router, http.MethodPost, "/api/v1/pairing/invites/redeem", `{"code":"`+code+`"}`, "")
+	if response.Code != http.StatusBadRequest {
+		t.Fatal("redemption without profile accepted")
+	}
+	response = performJSONRequest(t, router, http.MethodPost, "/api/v1/pairing/invites/redeem", profileRequest(t, map[string]string{"code": code}, "Fern"), "")
+	if response.Code != http.StatusOK {
+		t.Fatal("invalid redemption consumed the invitation")
+	}
+	response = performJSONRequest(t, router, http.MethodGet, "/api/v1/pairing/session", "", "")
+	if response.Code != http.StatusUnauthorized || strings.Contains(response.Body.String(), "avatar_base64") {
+		t.Fatal("profile leaked without credentials")
 	}
 }
 

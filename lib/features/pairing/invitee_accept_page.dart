@@ -4,11 +4,11 @@ import '../../design/components/handdrawn_button.dart';
 import '../../design/components/handdrawn_card.dart';
 import '../../design/layouts/handdrawn_scaffold.dart';
 import '../../design/theme/colors.dart';
-import '../../design/icons/access/access_doodle_icon.dart';
 import 'pairing_api.dart';
 import 'pairing_credentials.dart';
 import 'paired_home_page.dart';
 import 'widgets/pairing_error_note.dart';
+import 'widgets/member_profile_editor.dart';
 import '../../l10n/generated/app_localizations.dart';
 
 /// Lets the invitee review and accept a one-time link opened from another app.
@@ -22,6 +22,8 @@ class InviteeAcceptPage extends StatefulWidget {
 }
 
 class _InviteeAcceptPageState extends State<InviteeAcceptPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _profileKey = GlobalKey<MemberProfileEditorState>();
   final _api = PairingApi();
   final _credentials = PairingCredentials();
   bool _isLoading = false;
@@ -34,6 +36,8 @@ class _InviteeAcceptPageState extends State<InviteeAcceptPage> {
   }
 
   Future<void> _acceptInvite() async {
+    if (!_formKey.currentState!.validate()) return;
+    final profile = _profileKey.currentState!.profile!;
     final l10n = AppLocalizations.of(context)!;
     final serverURL = widget.inviteUri.queryParameters['server'];
     final code = widget.inviteUri.queryParameters['code'];
@@ -50,7 +54,7 @@ class _InviteeAcceptPageState extends State<InviteeAcceptPage> {
       _errorMessage = null;
     });
     try {
-      final result = await _api.redeemInvite(serverURL, code);
+      final result = await _api.redeemInvite(serverURL, code, profile: profile);
       final token = result.inviteeToken;
       final recoveryCode = result.recoveryCode;
       final pairID = result.pairID;
@@ -85,6 +89,7 @@ class _InviteeAcceptPageState extends State<InviteeAcceptPage> {
               pairID: pairID,
               role: 'invitee',
               status: 'paired',
+              profile: profile,
             ),
             recoveryCodeToSave: recoveryCode,
             storageWarning: storageWarning,
@@ -92,10 +97,12 @@ class _InviteeAcceptPageState extends State<InviteeAcceptPage> {
         ),
         (_) => false,
       );
-    } on PairingApiException {
+    } on PairingApiException catch (error) {
       if (mounted) {
         setState(
-          () => _errorMessage = AppLocalizations.of(context)!.requestFailed,
+          () => _errorMessage = error.message == 'invalid_profile'
+              ? l10n.profileRejected
+              : l10n.requestFailed,
         );
       }
     } on Object {
@@ -120,57 +127,57 @@ class _InviteeAcceptPageState extends State<InviteeAcceptPage> {
           children: [
             HanddrawnCard(
               color: const Color(0xFFF4F0FF),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Center(
-                    child: AccessDoodleIcon(
-                      symbol: AccessDoodle.acceptInvitation,
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    MemberProfileEditor(key: _profileKey, enabled: !_isLoading),
+                    const SizedBox(height: 12),
+                    Text(
+                      AppLocalizations.of(context)!.invited,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            color: PawmateColors.ink,
+                            fontWeight: FontWeight.w700,
+                          ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    AppLocalizations.of(context)!.invited,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: PawmateColors.ink,
-                      fontWeight: FontWeight.w700,
+                    const SizedBox(height: 8),
+                    Text(
+                      AppLocalizations.of(context)!.acceptOneTimeHelp,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: PawmateColors.softBrown,
+                        height: 1.4,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    AppLocalizations.of(context)!.acceptOneTimeHelp,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: PawmateColors.softBrown,
-                      height: 1.4,
+                    const SizedBox(height: 16),
+                    Text(
+                      AppLocalizations.of(context)!.privateServer,
+                      style: TextStyle(
+                        color: PawmateColors.softBrown,
+                        fontSize: 12,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    AppLocalizations.of(context)!.privateServer,
-                    style: TextStyle(
-                      color: PawmateColors.softBrown,
-                      fontSize: 12,
+                    const SizedBox(height: 4),
+                    SelectableText(
+                      serverURL,
+                      style: const TextStyle(
+                        color: PawmateColors.ink,
+                        fontFamily: 'monospace',
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  SelectableText(
-                    serverURL,
-                    style: const TextStyle(
-                      color: PawmateColors.ink,
-                      fontFamily: 'monospace',
+                    const SizedBox(height: 20),
+                    HanddrawnButton(
+                      onPressed: _isLoading ? null : _acceptInvite,
+                      icon: Icons.favorite_border,
+                      label: _isLoading
+                          ? AppLocalizations.of(context)!.joining
+                          : AppLocalizations.of(context)!.acceptInvitation,
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  HanddrawnButton(
-                    onPressed: _isLoading ? null : _acceptInvite,
-                    icon: Icons.favorite_border,
-                    label: _isLoading
-                        ? AppLocalizations.of(context)!.joining
-                        : AppLocalizations.of(context)!.acceptInvitation,
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             if (_errorMessage != null) ...[

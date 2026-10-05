@@ -118,10 +118,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Review invitation'));
       await tester.pumpAndSettle();
-      expect(
-        find.text('Paste the complete pawmate://pair invitation link.'),
-        findsOneWidget,
-      );
+      expect(find.text('This invitation link is not valid.'), findsOneWidget);
       await tester.enterText(find.byType(TextFormField), invitation);
       await tester.tap(find.text('Review invitation'));
       await tester.pumpAndSettle();
@@ -175,6 +172,9 @@ void main() {
       find.bySemanticsLabel('Accept invitation'),
     );
     expect(node.getSemanticsData().hasAction(ui.SemanticsAction.tap), isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    // The language control now precedes the access cards in focus order.
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);

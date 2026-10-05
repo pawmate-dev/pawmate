@@ -28,13 +28,13 @@ session-validation endpoint. Each member can stay signed in on multiple devices,
 with an independent access token for each installation. Existing token records
 are automatically migrated on server startup.
 
-## Choose an access method
+## Access and onboarding
 
-New installations open a **2 × 2 access matrix**, not a long page of unrelated
-forms. The four cards are Create invitation, Accept invitation, Restore data,
-and Add device. Each opens a focused page with back navigation. An existing
-pending invitation still reopens its invitation status page; valid paired
-sessions still open Chat, and invalid saved sessions still lead to recovery.
+New installations open an access screen with four choices: Create invitation,
+Accept invitation, Restore data, and Add device. Each opens a focused page with
+back navigation. An existing pending invitation reopens its invitation status
+page; valid paired sessions open Chat, and invalid saved sessions lead to
+recovery.
 
 **Accept invitation** lets the invitee paste the complete `pawmate://pair` link.
 Clipboard access happens only after pressing Paste link. The client validates
@@ -47,7 +47,7 @@ not import a backup or copy a database. Recovery rotates credentials and signs
 out that member's other devices. **Add device** is the non-destructive choice
 when another installation remains signed in.
 
-The icon family lives in `lib/design/icons/access/`, with shared dry-wax rendering
+The access icon family lives in `lib/design/icons/access/`, with shared dry-wax rendering
 in `crayon_strokes.dart`. Pigment grain, bounded jitter, irregular pressure
 overdraw and small broken edges give native paths a warm crayon/oil-pastel feel.
 Fixed purpose-based seeds make fresh repaints pixel-stable. Four illustrated
@@ -60,13 +60,24 @@ color and spacing tokens plus the app theme, `layouts/` contains the scaffold,
 `illustrations/` contains decorative compositions. Import token files directly;
 design widgets do not depend on feature services. See `lib/design/README.md`.
 
-Previous stacked-layout reference (reconstructed from the shared components):
+## Member identity during pairing
 
-![Previous stacked onboarding reference](images/login-before.png)
+The inviter sets an avatar and nickname while configuring the server; the invitee
+does the same on the invitation review page before accepting. Both use
+`MemberProfileEditor`: a centered, deterministic crayon circle/plus upload control,
+followed by a native nickname field. Cancelling image selection preserves the
+previous selection; malformed images and missing values show localized errors.
 
-Current two-by-two access landing page (Flutter widget preview, not a device capture):
+The client crops a selected PNG/JPEG to a 256×256 PNG and sends a `profile` object
+with the invitation request. Gin bounds request size, while the pairing service
+validates nickname length, image bytes and dimensions. SQLite stores the profile
+in `member_profiles` in the same GORM transaction as invitation creation or
+acceptance. A failed identity validation never consumes the invitation.
 
-![Four hand-drawn access methods](images/login-matrix.png)
+`PairingSession` restores both identities from the authenticated session endpoint.
+The Home tab displays each nickname and portrait; recovery and device login keep
+the same member identity. Existing couples without profiles are not reset; a
+future profile-editing flow can fill in their missing identity.
 
 ## Multiple devices and chat
 
@@ -111,9 +122,6 @@ The API contracts are `GET /api/v1/chat/messages`, `POST /api/v1/chat/messages`
 and `POST /api/v1/chat/read`; see `server/README.md` for pagination, limits and
 receipt semantics.
 
-The following widget-rendered preview uses sample messages, not private data:
-
-![Basic chat with paper bubbles, a read receipt and the Chat-first navigation](images/basic-chat.png)
 Recovery codes are single-use and must be saved by each member outside the app.
 Recovery revokes all of that member's sessions and outstanding device login codes,
 then issues a new token and recovery code; the partner remains signed in. Use

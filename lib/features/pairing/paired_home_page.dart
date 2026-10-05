@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../design/components/handdrawn_card.dart';
+import '../../design/components/couple_avatar.dart';
 import '../../design/layouts/handdrawn_scaffold.dart';
 import '../../design/theme/colors.dart';
 import 'pairing_api.dart';
@@ -38,6 +41,8 @@ class PairedHomePage extends StatefulWidget {
 class _PairedHomePageState extends State<PairedHomePage>
     with WidgetsBindingObserver {
   late final ChatController _chat;
+  final _profileApi = PairingApi();
+  late PairingSession _profileSession;
   int _tab = 0;
   int _lastUnread = 0;
   bool _loaded = false;
@@ -47,6 +52,10 @@ class _PairedHomePageState extends State<PairedHomePage>
   @override
   void initState() {
     super.initState();
+    _profileSession = widget.session;
+    if (widget.session.profile == null || widget.session.partner == null) {
+      unawaited(_loadProfiles());
+    }
     WidgetsBinding.instance.addObserver(this);
     _chat = ChatController(widget.chatApi ?? ChatApi(widget.credentials))
       ..addListener(_changed);
@@ -55,6 +64,19 @@ class _PairedHomePageState extends State<PairedHomePage>
           WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed,
     );
     _chat.start();
+  }
+
+  /// Reads server-owned identities after invitation, recovery or device login.
+  Future<void> _loadProfiles() async {
+    try {
+      final session = await _profileApi.validateSession(
+        widget.credentials.serverURL,
+        widget.credentials.accessToken,
+      );
+      if (mounted) setState(() => _profileSession = session);
+    } on Object {
+      // A profile lookup must not interrupt an otherwise usable chat session.
+    }
   }
 
   /// Pauses polling and read receipts when the application leaves the foreground.
@@ -111,6 +133,7 @@ class _PairedHomePageState extends State<PairedHomePage>
 
   @override
   void dispose() {
+    _profileApi.close();
     WidgetsBinding.instance.removeObserver(this);
     _chat.removeListener(_changed);
     _chat.dispose();
@@ -177,7 +200,7 @@ class _PairedHomePageState extends State<PairedHomePage>
                 ),
                 _HomeDetails(
                   credentials: widget.credentials,
-                  session: widget.session,
+                  session: _profileSession,
                   recoveryCodeToSave: widget.recoveryCodeToSave,
                   storageWarning: widget.storageWarning,
                 ),
@@ -216,6 +239,31 @@ class _HomeDetails extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (session.profile != null || session.partner != null) ...[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (session.profile case final profile?)
+                        Expanded(
+                          child: CoupleAvatar(
+                            avatar: profile.avatar,
+                            nickname: profile.nickname,
+                            label: l10n.yourProfile,
+                          ),
+                        ),
+                      const SizedBox(width: 16),
+                      if (session.partner case final partner?)
+                        Expanded(
+                          child: CoupleAvatar(
+                            avatar: partner.avatar,
+                            nickname: partner.nickname,
+                            label: l10n.partnerProfile,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 const Icon(
                   Icons.home_rounded,
                   size: 36,

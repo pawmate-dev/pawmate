@@ -153,6 +153,33 @@ Both participants must be able to reach the instance URL used in invitations.
 
 ## Configuration
 
+### Member nicknames and avatars
+
+Creating and accepting invitations now requires a `profile` object alongside
+the existing request fields:
+
+```json
+{"profile":{"nickname":"Ash","avatar_base64":"<base64-encoded PNG>"}}
+```
+
+Nicknames are trimmed and contain 1–32 Unicode characters without control
+characters. Avatars must be valid PNG/JPEG images, at most 256 KiB decoded from
+base64, with dimensions at most 512×512. The client center-crops selected images
+to a 256×256 PNG; source files must be under 10 MiB. The server validates images
+and re-encodes them to PNG before saving, stripping metadata.
+
+The additive `member_profiles` table stores one profile per member. Invitation
+creation and acceptance save profiles in the same transaction as credentials
+and pairing, so rejected uploads cannot consume an invitation. Replacing an
+expired, unpaired invitation removes the old inviter identity. Emergency recovery
+and device login preserve profiles. Authenticated `GET /api/v1/pairing/session`
+returns `profile` and, once paired, `partner`; anonymous callers cannot fetch them.
+
+Existing paired databases remain usable with absent profiles; this change does
+not invent nicknames or overwrite an existing relationship. New invitation
+requests from older clients without a profile are rejected. Upgrade the server
+and client together. Profile editing for existing couples is not implemented yet.
+
 ### Persistence architecture
 
 The server uses [GORM](https://gorm.io/docs/) for pairing, device sessions,

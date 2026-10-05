@@ -456,4 +456,37 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get myDeviceName => '我的设备';
+
+  @override
+  String get uploadAvatar => '上传头像';
+
+  @override
+  String get changeAvatar => '更换头像';
+
+  @override
+  String get avatarImages => '头像图片';
+
+  @override
+  String get avatarRequired => '请先选择头像';
+
+  @override
+  String get avatarUploadError => '无法读取这张图片，请选择小于 10 MB 的 PNG 或 JPEG 图片';
+
+  @override
+  String get nickname => '昵称';
+
+  @override
+  String get nicknameHint => '想让伴侣怎么称呼你';
+
+  @override
+  String get nicknameInvalid => '请输入 1 到 32 个字符的昵称，不要包含控制字符';
+
+  @override
+  String get profileRejected => '服务器未能保存个人资料，请检查昵称和头像';
+
+  @override
+  String get yourProfile => '你';
+
+  @override
+  String get partnerProfile => '你的伴侣';
 }

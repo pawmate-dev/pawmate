@@ -90,6 +90,10 @@ func (readRecord) TableName() string { return "chat_reads" }
 func migrateSchema(db *gorm.DB) error {
 	return db.Transaction(func(tx *gorm.DB) error {
 		for _, schema := range []string{
+			`CREATE TABLE IF NOT EXISTS member_profiles (
+				role TEXT PRIMARY KEY CHECK(role IN ('inviter','invitee')),
+				nickname TEXT NOT NULL, avatar_base64 TEXT NOT NULL
+			)`,
 			`CREATE TABLE IF NOT EXISTS pairing_state (
 				id INTEGER PRIMARY KEY CHECK (id = 1), server_url TEXT NOT NULL,
 				invite_code_hash BLOB NOT NULL, invite_expires_at INTEGER NOT NULL,

@@ -150,5 +150,16 @@
   "requestFailed": "The server could not complete this request. Try again.",
   "invalidServerAddress": "Enter a valid HTTP or HTTPS server address.",
   "invitationLinkHint": "pawmate://pair?server=…&code=…",
-  "myDeviceName": "My device"
+  "myDeviceName": "My device",
+  "uploadAvatar": "Upload avatar",
+  "changeAvatar": "Change avatar",
+  "avatarImages": "Avatar images",
+  "avatarRequired": "Choose an avatar before continuing.",
+  "avatarUploadError": "Could not read this image. Choose a PNG or JPEG under 10 MB.",
+  "nickname": "Nickname",
+  "nicknameHint": "What should your partner call you?",
+  "nicknameInvalid": "Use a nickname between 1 and 32 characters, without control characters.",
+  "profileRejected": "The server could not save your profile. Check your nickname and avatar.",
+  "yourProfile": "You",
+  "partnerProfile": "Your partner"
 }

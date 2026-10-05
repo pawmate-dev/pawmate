@@ -12,6 +12,7 @@ import 'package:pawmate/features/chat/chat_page.dart';
 import 'package:pawmate/features/pairing/pairing_credentials.dart';
 import 'package:pawmate/features/pairing/paired_home_page.dart';
 import 'package:pawmate/features/pairing/pairing_api.dart';
+import 'package:pawmate/l10n/generated/app_localizations.dart';
 
 const credentials = SavedPairingCredentials(
   serverURL: 'https://home.example.test',
@@ -216,6 +217,8 @@ void main() {
       await chat.synchronize();
       Widget page(bool active) => MaterialApp(
         theme: buildPawmateTheme(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: ChatPage(controller: chat, active: active),
         ),
@@ -246,6 +249,8 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: buildPawmateTheme(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(
             context,
@@ -293,6 +298,8 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: buildPawmateTheme(),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
         home: PairedHomePage(
           credentials: credentials,
           session: const PairingSession(

@@ -11,8 +11,9 @@ import (
 )
 
 type createInviteRequest struct {
-	ServerURL  string `json:"server_url" binding:"required"`
-	DeviceName string `json:"device_name" binding:"max=80"`
+	Profile    *pairing.Profile `json:"profile" binding:"required"`
+	ServerURL  string           `json:"server_url" binding:"required"`
+	DeviceName string           `json:"device_name" binding:"max=80"`
 }
 
 type createInviteResponse struct {
@@ -23,8 +24,9 @@ type createInviteResponse struct {
 }
 
 type redeemInviteRequest struct {
-	Code       string `json:"code" binding:"required"`
-	DeviceName string `json:"device_name" binding:"max=80"`
+	Profile    *pairing.Profile `json:"profile" binding:"required"`
+	Code       string           `json:"code" binding:"required"`
+	DeviceName string           `json:"device_name" binding:"max=80"`
 }
 
 type pairingStatusResponse struct {
@@ -47,25 +49,30 @@ type recoverPairingResponse struct {
 }
 
 type pairingSessionResponse struct {
-	PairID string `json:"pair_id,omitempty"`
-	Role   string `json:"role"`
-	Status string `json:"status"`
+	Profile *pairing.Profile `json:"profile,omitempty"`
+	Partner *pairing.Profile `json:"partner,omitempty"`
+	PairID  string           `json:"pair_id,omitempty"`
+	Role    string           `json:"role"`
+	Status  string           `json:"status"`
 }
 
 // createInviteHandler creates an invitation for the configured server URL.
 func createInviteHandler(service *pairing.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 400*1024)
 		var request createInviteRequest
 		if err := c.ShouldBindJSON(&request); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request"})
 			return
 		}
 
-		invite, err := service.CreateInvite(request.ServerURL, request.DeviceName)
+		invite, err := service.CreateInviteWithProfile(request.ServerURL, request.DeviceName, *request.Profile)
 		if err != nil {
 			status := http.StatusInternalServerError
 			code := "internal_error"
 			switch {
+			case errors.Is(err, pairing.ErrInvalidProfile):
+				status, code = http.StatusBadRequest, "invalid_profile"
 			case errors.Is(err, pairing.ErrInvalidServerURL):
 				status, code = http.StatusBadRequest, "invalid_server_url"
 			case errors.Is(err, pairing.ErrAlreadyPaired):
@@ -89,17 +96,20 @@ func createInviteHandler(service *pairing.Service) gin.HandlerFunc {
 // redeemInviteHandler consumes the one-time code supplied by the invitee.
 func redeemInviteHandler(service *pairing.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 400*1024)
 		var request redeemInviteRequest
 		if err := c.ShouldBindJSON(&request); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_request"})
 			return
 		}
 
-		status, err := service.RedeemInvite(request.Code, request.DeviceName)
+		status, err := service.RedeemInviteWithProfile(request.Code, request.DeviceName, *request.Profile)
 		if err != nil {
 			code := "invalid_invite"
 			httpStatus := http.StatusConflict
-			if errors.Is(err, pairing.ErrExpiredInvite) {
+			if errors.Is(err, pairing.ErrInvalidProfile) {
+				code, httpStatus = "invalid_profile", http.StatusBadRequest
+			} else if errors.Is(err, pairing.ErrExpiredInvite) {
 				code, httpStatus = "expired_invite", http.StatusGone
 			} else if !errors.Is(err, pairing.ErrInvalidInvite) {
 				code, httpStatus = "internal_error", http.StatusInternalServerError
@@ -151,8 +161,9 @@ func recoverPairingHandler(service *pairing.Service) gin.HandlerFunc {
 // pairingSessionHandler validates either member's access token.
 func pairingSessionHandler(service *pairing.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		c.Header("Cache-Control", "no-store")
 		token := strings.TrimSpace(strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer "))
-		session, err := service.Authenticate(token)
+		session, err := service.SessionWithProfiles(token)
 		if err != nil {
 			if errors.Is(err, pairing.ErrInvalidSessionToken) {
 				c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid_session_token"})
@@ -162,9 +173,11 @@ func pairingSessionHandler(service *pairing.Service) gin.HandlerFunc {
 			return
 		}
 		c.JSON(http.StatusOK, pairingSessionResponse{
-			PairID: session.PairID,
-			Role:   session.Role,
-			Status: session.Status,
+			Profile: session.Profile,
+			Partner: session.Partner,
+			PairID:  session.PairID,
+			Role:    session.Role,
+			Status:  session.Status,
 		})
 	}
 }
