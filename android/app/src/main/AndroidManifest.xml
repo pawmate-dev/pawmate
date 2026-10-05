@@ -1,13 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Pairing and independent device sessions require network access in release builds. -->
     <uses-permission android:name="android.permission.INTERNET"/>
-    <!-- User-configured private instances may use HTTP, including in release builds. -->
     <application
         android:label="Pawmate"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"
-        android:usesCleartextTraffic="true">
+        android:usesCleartextTraffic="false">
         <activity
             android:name=".MainActivity"
             android:exported="true"

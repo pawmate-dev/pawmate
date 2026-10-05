@@ -935,7 +935,7 @@ abstract class AppLocalizations {
   /// No description provided for @invalidServerAddress.
   ///
   /// In en, this message translates to:
-  /// **'Enter a valid HTTP or HTTPS server address.'**
+  /// **'Enter a valid HTTPS server address. HTTP is available in debug builds only.'**
   String get invalidServerAddress;
 
   /// No description provided for @invitationLinkHint.

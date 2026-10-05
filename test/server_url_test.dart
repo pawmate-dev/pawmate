@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:pawmate/features/pairing/pairing_api.dart';
 
 void main() {
-  test('HTTP private instance URLs are accepted without a build-mode gate', () {
+  test('development builds accept HTTP private instance URLs', () {
     expect(
       PairingApi.parseServerURL(' http://100.64.0.1:8080/ ').toString(),
       'http://100.64.0.1:8080',

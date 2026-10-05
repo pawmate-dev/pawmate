@@ -148,7 +148,7 @@
   "serverAccessError": "无法连接到 Pawmate 服务器，请检查网络后重试",
   "sessionRestoreError": "无法恢复此登录状态",
   "requestFailed": "服务器暂时无法完成请求，请重试",
-  "invalidServerAddress": "请输入有效的 HTTP 或 HTTPS 服务器地址",
+  "invalidServerAddress": "请输入有效的 HTTPS 服务器地址。HTTP 仅在调试版本中可用。",
   "invitationLinkHint": "pawmate://pair?server=…&code=…",
   "myDeviceName": "我的设备",
   "uploadAvatar": "上传头像",

@@ -101,9 +101,15 @@ class _DeviceLoginPageState extends State<DeviceLoginPage> {
     } on PairingApiException catch (error) {
       if (mounted) {
         setState(
-          () => _error = error.message == 'invalid_device_code'
-              ? AppLocalizations.of(context)!.invalidDeviceCode
-              : AppLocalizations.of(context)!.requestFailed,
+          () => _error = switch (error.message) {
+            'invalid_device_code' => AppLocalizations.of(
+              context,
+            )!.invalidDeviceCode,
+            'https_required' => AppLocalizations.of(
+              context,
+            )!.invalidServerAddress,
+            _ => AppLocalizations.of(context)!.requestFailed,
+          },
         );
       }
     } on Object {

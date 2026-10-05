@@ -38,7 +38,7 @@ Widget landing({double textScale = 1}) => MaterialApp(
 void main() {
   setUp(() => FlutterSecureStorage.setMockInitialValues({}));
 
-  test('pasted invitations accept HTTP and HTTPS with encoded server URLs', () {
+  test('development builds accept HTTP and HTTPS invitation URLs', () {
     expect(
       InvitationLink.parse(' $invitation ').queryParameters['server'],
       'http://100.64.0.1:8080',

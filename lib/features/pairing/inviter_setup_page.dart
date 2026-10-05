@@ -107,7 +107,9 @@ class _InviterSetupPageState extends State<InviterSetupPage> {
       if (mounted) {
         final l10n = AppLocalizations.of(context)!;
         setState(
-          () => _errorMessage = error.message.startsWith('Use an HTTP')
+          () => _errorMessage =
+              error.message == 'https_required' ||
+                  error.message.startsWith('Use an HTTP')
               ? l10n.invalidServerAddress
               : error.message == 'invalid_profile'
               ? l10n.profileRejected

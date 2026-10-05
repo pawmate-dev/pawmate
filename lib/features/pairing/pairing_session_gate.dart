@@ -113,6 +113,9 @@ class _PairingSessionGateState extends State<PairingSessionGate> {
   }
 
   String _messageFor(PairingApiException error) {
+    if (error.message == 'https_required') {
+      return AppLocalizations.of(context)!.invalidServerAddress;
+    }
     if (error.statusCode == null) {
       return AppLocalizations.of(context)!.serverAccessError;
     }

@@ -449,7 +449,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get requestFailed => '服务器暂时无法完成请求，请重试';
 
   @override
-  String get invalidServerAddress => '请输入有效的 HTTP 或 HTTPS 服务器地址';
+  String get invalidServerAddress => '请输入有效的 HTTPS 服务器地址。HTTP 仅在调试版本中可用。';
 
   @override
   String get invitationLinkHint => 'pawmate://pair?server=…&code=…';

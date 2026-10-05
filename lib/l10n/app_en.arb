@@ -148,7 +148,7 @@
   "serverAccessError": "Could not reach your Pawmate server. Check your connection and retry.",
   "sessionRestoreError": "Could not restore this session.",
   "requestFailed": "The server could not complete this request. Try again.",
-  "invalidServerAddress": "Enter a valid HTTP or HTTPS server address.",
+  "invalidServerAddress": "Enter a valid HTTPS server address. HTTP is available in debug builds only.",
   "invitationLinkHint": "pawmate://pair?server=…&code=…",
   "myDeviceName": "My device",
   "uploadAvatar": "Upload avatar",

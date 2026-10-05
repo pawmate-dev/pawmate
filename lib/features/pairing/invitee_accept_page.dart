@@ -100,9 +100,11 @@ class _InviteeAcceptPageState extends State<InviteeAcceptPage> {
     } on PairingApiException catch (error) {
       if (mounted) {
         setState(
-          () => _errorMessage = error.message == 'invalid_profile'
-              ? l10n.profileRejected
-              : l10n.requestFailed,
+          () => _errorMessage = switch (error.message) {
+            'invalid_profile' => l10n.profileRejected,
+            'https_required' => l10n.invalidServerAddress,
+            _ => l10n.requestFailed,
+          },
         );
       }
     } on Object {

@@ -476,7 +476,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get invalidServerAddress =>
-      'Enter a valid HTTP or HTTPS server address.';
+      'Enter a valid HTTPS server address. HTTP is available in debug builds only.';
 
   @override
   String get invitationLinkHint => 'pawmate://pair?server=…&code=…';
