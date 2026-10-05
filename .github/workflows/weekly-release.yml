@@ -1,0 +1,263 @@
+name: Weekly release
+
+on:
+  schedule:
+    # Monday 09:17 in Asia/Shanghai; avoid the busy start of the hour.
+    - cron: '17 1 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly-release
+  cancel-in-progress: false
+
+env:
+  # Keep weekly builds on the project's tested SDK rather than a moving channel.
+  FLUTTER_VERSION: '3.44.8'
+
+jobs:
+  prepare:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      sha: ${{ steps.release.outputs.sha }}
+      flutter-version: ${{ steps.release.outputs.flutter-version }}
+    steps:
+      - name: Identify this release
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Run number distinguishes manual builds; reruns retain the same tag.
+          {
+            echo "tag=weekly-${GITHUB_RUN_NUMBER}"
+            echo "sha=${GITHUB_SHA}"
+            echo "flutter-version=${FLUTTER_VERSION}"
+          } >> "$GITHUB_OUTPUT"
+
+  checks:
+    needs: prepare
+    uses: ./.github/workflows/ci.yml
+    with:
+      flutter-version: ${{ needs.prepare.outputs.flutter-version }}
+
+  android:
+    needs: [prepare, checks]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Build per-ABI APKs
+        run: flutter build apk --release --split-per-abi --build-number="$GITHUB_RUN_NUMBER"
+      - name: Name release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk "dist/pawmate-client-${RELEASE_TAG}-android-armv7.apk"
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk "dist/pawmate-client-${RELEASE_TAG}-android-arm64.apk"
+          cp build/app/outputs/flutter-apk/app-x86_64-release.apk "dist/pawmate-client-${RELEASE_TAG}-android-x64.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: weekly-client-android
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  desktop:
+    needs: [prepare, checks]
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux
+            arch: x64
+            runner: ubuntu-24.04
+          - os: windows
+            arch: x64
+            runner: windows-2022
+          - os: macos
+            arch: x64
+            runner: macos-15-intel
+            xcode_arch: x86_64
+          - os: macos
+            arch: arm64
+            runner: macos-15
+            xcode_arch: arm64
+    runs-on: ${{ matrix.runner }}
+    env:
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+      TARGET_OS: ${{ matrix.os }}
+      TARGET_ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+      - name: Install Linux build dependencies
+        if: matrix.os == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libsecret-1-dev liblzma-dev
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          architecture: ${{ matrix.arch }}
+          cache: true
+      - run: flutter pub get
+      - name: Build desktop client
+        shell: bash
+        env:
+          # Flutter forwards these overrides to Xcode; don't label a universal
+          # binary as a single architecture merely because its runner is native.
+          FLUTTER_XCODE_ARCHS: ${{ matrix.xcode_arch }}
+          FLUTTER_XCODE_ONLY_ACTIVE_ARCH: 'YES'
+        run: |
+          set -euo pipefail
+          flutter build "$TARGET_OS" --release --build-number="$GITHUB_RUN_NUMBER"
+      - name: Package Linux bundle
+        if: matrix.os == 'linux'
+        run: |
+          mkdir -p dist
+          tar -czf "dist/pawmate-client-${RELEASE_TAG}-linux-x64.tar.gz" -C build/linux/x64/release/bundle .
+      - name: Package Windows bundle
+        if: matrix.os == 'windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath "dist/pawmate-client-$env:RELEASE_TAG-windows-x64.zip"
+      - name: Package macOS application
+        if: matrix.os == 'macos'
+        shell: bash
+        env:
+          EXPECTED_ARCH: ${{ matrix.xcode_arch }}
+        run: |
+          set -euo pipefail
+          app=build/macos/Build/Products/Release/pawmate.app
+          test "$(lipo -archs "$app/Contents/MacOS/pawmate")" = "$EXPECTED_ARCH"
+          mkdir -p dist
+          ditto -c -k --sequesterRsrc --keepParent "$app" "dist/pawmate-client-${RELEASE_TAG}-macos-${TARGET_ARCH}.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: weekly-client-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  server:
+    needs: [prepare, checks]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [linux, windows, darwin]
+        arch: [amd64, arm64]
+    env:
+      GOOS: ${{ matrix.os }}
+      GOARCH: ${{ matrix.arch }}
+      CGO_ENABLED: '0'
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - name: Cross-compile server and package runtime files
+        shell: bash
+        run: |
+          set -euo pipefail
+          arch="$GOARCH"
+          os="$GOOS"
+          binary=pawmate-server
+          if [[ "$arch" == amd64 ]]; then arch=x64; fi
+          if [[ "$os" == darwin ]]; then os=macos; fi
+          if [[ "$os" == windows ]]; then binary+=.exe; fi
+          package="pawmate-server-${RELEASE_TAG}-${os}-${arch}"
+          mkdir -p "stage/$package" dist
+          (cd server && go build -trimpath -ldflags='-s -w' -o "../stage/$package/$binary" ./cmd/pawmate-server)
+          cp server/README.md server/.env.example "stage/$package/"
+          # Never bundle a developer's SQLite database or real environment file.
+          if [[ "$os" == windows ]]; then
+            (cd stage && zip -r "../dist/$package.zip" "$package")
+          else
+            tar -czf "dist/$package.tar.gz" -C stage "$package"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: weekly-server-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: [prepare, checks, android, desktop, server]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+      RELEASE_SHA: ${{ needs.prepare.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: weekly-*
+          path: dist
+          merge-multiple: true
+      - name: Verify assets and create checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          # 3 Android APKs, 4 desktop bundles, and 6 server archives.
+          test "$(find dist -maxdepth 1 -type f | wc -l)" -eq 13
+          printf 'Commit: %s\nFlutter: %s\nWorkflow: %s/%s/actions/runs/%s\n' \
+            "$RELEASE_SHA" "$FLUTTER_VERSION" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > dist/BUILD-INFO.txt
+          (cd dist && sha256sum ./* > SHA256SUMS)
+      - name: Publish complete prerelease
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Public releases remain immutable; a failed draft upload can be retried.
+          if gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft' > release-state.txt 2> release-error.txt; then
+            if [[ "$(cat release-state.txt)" != true ]]; then
+              echo "Release $RELEASE_TAG is already public; leaving it unchanged."
+              exit 0
+            fi
+            # Draft releases may not have created their Git tag yet.
+            test "$(gh release view "$RELEASE_TAG" --json targetCommitish --jq '.targetCommitish')" = "$RELEASE_SHA"
+          else
+            # Create as a draft so a network failure never exposes partial assets.
+            gh release create "$RELEASE_TAG" --target "$RELEASE_SHA" \
+              --title "Pawmate $RELEASE_TAG" --notes-file .github/weekly-release-notes.md \
+              --prerelease --draft --latest=false
+          fi
+          gh release upload "$RELEASE_TAG" dist/* --clobber
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false

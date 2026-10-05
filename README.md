@@ -2,6 +2,14 @@
 
 A new Flutter project.
 
+## Weekly development releases
+
+The [weekly release workflow](.github/workflows/weekly-release.yml) publishes
+platform-specific client and server packages every Monday at 09:17 Asia/Shanghai.
+It also supports manual runs on the default branch. These are prereleases, not
+stable builds. See [the release guide](books/src/reference/weekly-releases.md)
+for supported architectures, installation caveats, and checksum verification.
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.
