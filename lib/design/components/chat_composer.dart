@@ -62,21 +62,26 @@ class ChatComposer extends StatelessWidget {
                         horizontal: PawmateSpace.medium,
                         vertical: PawmateSpace.small,
                       ),
-                      child: Semantics(
-                        label: inputLabel,
-                        child: TextField(
-                          controller: controller,
-                          onChanged: onChanged,
-                          minLines: 1,
-                          maxLines: 4,
-                          keyboardType: TextInputType.multiline,
-                          textInputAction: TextInputAction.newline,
-                          cursorColor: PawmateColors.ink,
-                          cursorOpacityAnimates: false,
-                          // Null decoration bypasses InputDecorator and its floating label,
-                          // animated border and focus fill. Selection and IME stay native.
-                          decoration: null,
-                          style: Theme.of(context).textTheme.bodyMedium,
+                      // Keep a short editor centered inside the 44px touch target,
+                      // without forcing multiline text into a fixed-height box.
+                      child: Center(
+                        heightFactor: 1,
+                        child: Semantics(
+                          label: inputLabel,
+                          child: TextField(
+                            controller: controller,
+                            onChanged: onChanged,
+                            minLines: 1,
+                            maxLines: 4,
+                            keyboardType: TextInputType.multiline,
+                            textInputAction: TextInputAction.newline,
+                            cursorColor: PawmateColors.ink,
+                            cursorOpacityAnimates: false,
+                            // Null decoration bypasses InputDecorator and its floating label,
+                            // animated border and focus fill. Selection and IME stay native.
+                            decoration: null,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
                         ),
                       ),
                     ),

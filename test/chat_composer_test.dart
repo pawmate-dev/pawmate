@@ -20,6 +20,68 @@ Widget application(Widget child, {Locale locale = const Locale('en')}) =>
     );
 
 void main() {
+  testWidgets(
+    'single-line caret is vertically centered and multiline editor grows',
+    (tester) async {
+      final draft = TextEditingController();
+      addTearDown(draft.dispose);
+      for (final scale in [1.0, 2.0]) {
+        await tester.pumpWidget(
+          application(
+            MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: ChatComposer(
+                  controller: draft,
+                  onChanged: (_) {},
+                  onAttachments: () {},
+                  onStickers: () {},
+                  onSend: () {},
+                  inputLabel: 'Message',
+                  attachmentsLabel: 'More',
+                  stickersLabel: 'Stickers',
+                  sendLabel: 'Send',
+                ),
+              ),
+            ),
+          ),
+        );
+        final surface = find
+            .ancestor(
+              of: find.byType(TextField),
+              matching: find.byType(CustomPaint),
+            )
+            .first;
+        for (final text in ['', 'Hello', '你好']) {
+          await tester.enterText(find.byType(TextField), text);
+          await tester.pump();
+          final editable = tester
+              .state<EditableTextState>(find.byType(EditableText))
+              .renderEditable;
+          final caret = editable.getLocalRectForCaret(
+            TextPosition(offset: text.length),
+          );
+          final center = editable.localToGlobal(caret.center);
+          expect(
+            center.dy,
+            closeTo(tester.getRect(surface).center.dy, 1),
+            reason: 'scale=$scale text=$text',
+          );
+        }
+        final singleHeight = tester.getSize(surface).height;
+        await tester.enterText(
+          find.byType(TextField),
+          'Line one\nLine two\nLine three',
+        );
+        await tester.pump();
+        expect(tester.getSize(surface).height, greaterThan(singleHeight));
+        expect(tester.takeException(), isNull);
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   testWidgets('composer orders actions around a silent native editor', (
     tester,
   ) async {
